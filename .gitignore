@@ -1,0 +1,22 @@
+# Editor / local agent
+.cursor/
+.claude/
+
+# Unrelated local checkout (not part of Vigil)
+everything-claude-code/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Next.js app (flashpoint-app/)
+flashpoint-app/node_modules/
+flashpoint-app/.next/
+flashpoint-app/out/
+flashpoint-app/build/
+flashpoint-app/.vercel
+flashpoint-app/.env
+flashpoint-app/.env.*
+flashpoint-app/*.tsbuildinfo
+flashpoint-app/npm-debug.log*
+flashpoint-app/coverage/
