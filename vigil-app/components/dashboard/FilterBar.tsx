@@ -104,6 +104,9 @@ export default function FilterBar({
             ? `${portfolioThreatsCount} THREATS`
             : `${viewThreatCount} THREATS`}
         </span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
+          [j/k] [Enter] [Esc] [/] [p] [1-4]
+        </span>
       </div>
     </div>
   );
