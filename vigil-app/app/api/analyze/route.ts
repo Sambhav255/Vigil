@@ -77,9 +77,9 @@ Keep it under 300 words. Be specific about asset price implications. No disclaim
         return Response.json({ ok: false, message: "AI request failed." }, { status: 502 });
       }
 
-      const json = (await res.json()) as any;
+      const json = (await res.json()) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
       const text =
-        json?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text ?? "").join("") ?? "";
+        json?.candidates?.[0]?.content?.parts?.map((p) => p?.text ?? "").join("") ?? "";
 
       if (!text.trim()) {
         return Response.json({ ok: false, message: "AI returned an empty response." }, { status: 502 });

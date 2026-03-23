@@ -3,8 +3,7 @@
 import type { RefObject } from "react";
 import styles from "../VigilDashboard.module.css";
 import { scoreHex } from "./shared";
-import type { AssetMeta, Threat } from "./dashboardTypes";
-import { STATIC_ASSET_SECTORS } from "@/lib/asset/staticAssetSectors";
+import type { AssetMeta } from "./dashboardTypes";
 
 type AssetRisk = {
   score: number;

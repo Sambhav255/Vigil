@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import styles from "../VigilDashboard.module.css";
-import type { Snapshot, Threat } from "./dashboardTypes";
+import type { Snapshot } from "./dashboardTypes";
 import { SOURCE_DISPLAY, scoreHex, truncateTitle } from "./shared";
 
 function probDeltaClass(delta: number) {

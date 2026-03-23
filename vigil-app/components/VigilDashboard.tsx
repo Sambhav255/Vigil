@@ -1,10 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties } from "react";
-
-type CSSWithCustomProperties = CSSProperties & Record<string, string>;
 import styles from "./VigilDashboard.module.css";
+import type { CSSWithCustomProperties } from "./dashboard/shared";
 import ErrorBoundary from "./ErrorBoundary";
 import { STATIC_ASSET_SECTORS } from "@/lib/asset/staticAssetSectors";
 import TickerBar from "./dashboard/TickerBar";
@@ -102,6 +100,8 @@ export default function VigilDashboard() {
   const [changedThreats, setChangedThreats] = useState<Record<number, "new" | "prob" | "sev">>({});
   const prevThreatByIdRef = useRef<Map<number, Threat>>(new Map());
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const notificationsEnabledRef = useRef(notificationsEnabled);
+  useEffect(() => { notificationsEnabledRef.current = notificationsEnabled; }, [notificationsEnabled]);
 
   // Fetch data every 15 s
   useEffect(() => {
@@ -131,7 +131,7 @@ export default function VigilDashboard() {
             }
 
             if (
-              notificationsEnabled &&
+              notificationsEnabledRef.current &&
               typeof window !== "undefined" &&
               "Notification" in window &&
               Notification.permission === "granted"
