@@ -24,34 +24,6 @@ type ViewMode = "dashboard" | "portfolio";
 type AssetMeta = { name?: string | null; sectors: string[] };
 
 // ── Constants ────────────────────────────────────────────────────────────────
-const SEVERITY_COLOR: Record<string, string> = {
-  critical: "#c42626",
-  high: "#b07028",
-  medium: "#2d6eb0",
-  low: "#25784a",
-};
-
-const SEV_CARD: Record<string, string> = {
-  critical: styles.sevCritical,
-  high: styles.sevHigh,
-  medium: styles.sevMedium,
-  low: styles.sevLow,
-};
-
-const SEV_BADGE: Record<string, string> = {
-  critical: styles.badgeCritical,
-  high: styles.badgeHigh,
-  medium: styles.badgeMedium,
-  low: styles.badgeLow,
-};
-
-const SEV_SELECTED: Record<string, string> = {
-  critical: styles.selectedCritical,
-  high: styles.selectedHigh,
-  medium: styles.selectedMedium,
-  low: styles.selectedLow,
-};
-
 const ASSET_SECTORS: Record<AssetFilter, string[]> = {
   all: [],
   stocks: ["Technology", "Finance", "Defense"],
@@ -74,56 +46,6 @@ function threatsForAsset(
       ? allThreats.filter((t) => !directIds.has(t.id) && sectorsForAsset.includes(t.sector))
       : [];
   return { direct, related };
-}
-
-const SOURCE_DISPLAY: Record<string, string> = {
-  polymarket: "Polymarket",
-  kalshi: "Kalshi",
-  gdelt: "GDELT",
-  alphaVantage: "Alpha Vantage",
-  coinGecko: "CoinGecko / Coinpaprika",
-  usgs: "USGS Earthquakes",
-  nasaEonet: "NASA EONET",
-  fred: "FRED Macro",
-  gprIndex: "GPR Index",
-  geminiFlash: "Gemini Flash",
-};
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-function fmtPrice(p: number) {
-  if (p >= 10_000) return p.toLocaleString("en-US", { maximumFractionDigits: 0 });
-  return p.toFixed(2);
-}
-
-function fmtVol(v: number) {
-  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`;
-  if (v >= 1_000) return `$${Math.round(v / 1000)}k`;
-  return `$${v}`;
-}
-
-function scoreClass(score: number) {
-  if (score > 70) return styles.scoreCritical;
-  if (score > 55) return styles.scoreHigh;
-  if (score > 35) return styles.scoreMedium;
-  return styles.scoreLow;
-}
-
-function scoreHex(score: number) {
-  if (score > 70) return SEVERITY_COLOR.critical;
-  if (score > 55) return SEVERITY_COLOR.high;
-  if (score > 35) return SEVERITY_COLOR.medium;
-  return SEVERITY_COLOR.low;
-}
-
-function probDeltaClass(delta: number) {
-  if (delta > 0) return styles.probDeltaPos;
-  if (delta < 0) return styles.probDeltaNeg;
-  return styles.probDeltaNeutral;
-}
-
-function truncateTitle(title: string, max = 32) {
-  if (title.length <= max) return title;
-  return `${title.slice(0, max)}…`;
 }
 
 // ── Portfolio risk computation (includes sector-level threats) ────────────────
@@ -157,38 +79,6 @@ function getAssetRisk(
     topThreat: sorted[0]?.title ?? null,
     hasRelated: related.length > 0,
   };
-}
-
-// ── Sparkline ─────────────────────────────────────────────────────────────────
-function Sparkline({ data, color }: { data: number[]; color: string }) {
-  const W = 140;
-  const H = 28;
-  if (!data.length) return null;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min || 0.01;
-  const pts = data
-    .map((v, i) => {
-      const x = ((i / (data.length - 1)) * (W - 4) + 2).toFixed(1);
-      const y = (H - 2 - ((v - min) / range) * (H - 8)).toFixed(1);
-      return `${x},${y}`;
-    })
-    .join(" ");
-  return (
-    <svg width={W} height={H} style={{ display: "block", overflow: "visible" }}>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-// ── Source status helper ──────────────────────────────────────────────────────
-function getSourceDisplay(name: string, state: string) {
-  if (name === "gprIndex") return { dot: "#b07028", label: "daily" };
-  if (name === "geminiFlash") return { dot: "#4a4845", label: "standby" };
-  if (state === "live") return { dot: "#25784a", label: "live" };
-  if (state === "stale") return { dot: "#b07028", label: "stale" };
-  if (state === "delayed") return { dot: "#b07028", label: "delayed" };
-  return { dot: "#c42626", label: "offline" };
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
