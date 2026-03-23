@@ -71,26 +71,29 @@ function isMacroLike(title: string) {
   return /(federal reserve|rate|cpi|inflation|jobs|unemployment|gdp|bond|yield|treasury)/i.test(title);
 }
 
-function extractTitle(m: any): string | null {
-  if (typeof m?.title === "string" && m.title) return m.title;
-  if (typeof m?.subtitle === "string" && m.subtitle) return m.subtitle;
-  if (typeof m?.event_ticker === "string" && m.event_ticker) return m.event_ticker;
-  if (typeof m?.ticker === "string" && m.ticker) return m.ticker;
+function extractTitle(m: unknown): string | null {
+  const market = m as Record<string, unknown>;
+  if (typeof market?.title === "string" && market.title) return market.title;
+  if (typeof market?.subtitle === "string" && market.subtitle) return market.subtitle;
+  if (typeof market?.event_ticker === "string" && market.event_ticker) return market.event_ticker;
+  if (typeof market?.ticker === "string" && market.ticker) return market.ticker;
   return null;
 }
 
-function extractProbability(m: any): number | null {
+function extractProbability(m: unknown): number | null {
+  const market = m as Record<string, unknown>;
   // For binary markets, Kalshi exposes yes-price as last_price_dollars (0..1).
-  const p = parseNum(m?.last_price_dollars);
+  const p = parseNum(market?.last_price_dollars);
   if (p == null) return null;
   return clampProbability(p);
 }
 
-function extractVolume(m: any): number | null {
+function extractVolume(m: unknown): number | null {
+  const market = m as Record<string, unknown>;
   return (
-    parseNum(m?.volume_24h_fp) ??
-    parseNum(m?.liquidity_dollars) ??
-    parseNum(m?.notional_value_dollars) ??
+    parseNum(market?.volume_24h_fp) ??
+    parseNum(market?.liquidity_dollars) ??
+    parseNum(market?.notional_value_dollars) ??
     null
   );
 }
@@ -100,7 +103,7 @@ export async function fetchKalshiThreatUpdates(baseThreats: Threat[]): Promise<{
   updates: ThreatUpdate[];
 }> {
   const url = "https://api.elections.kalshi.com/trade-api/v2/markets";
-  const json = await safeFetchJson<any>(url);
+  const json = await safeFetchJson<Record<string, unknown>>(url);
   const markets = json?.markets;
   if (!markets || !Array.isArray(markets)) return { ok: false, updates: [] };
 

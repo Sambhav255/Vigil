@@ -68,20 +68,22 @@ async function safeFetchJson<T>(url: string): Promise<T | null> {
   }
 }
 
-function extractEventTitle(ev: any): string | null {
+function extractEventTitle(ev: unknown): string | null {
+  const e = ev as Record<string, unknown>;
   return (
-    (typeof ev?.title === "string" && ev.title) ||
-    (typeof ev?.question === "string" && ev.question) ||
-    (typeof ev?.slug === "string" && ev.slug) ||
+    (typeof e?.title === "string" && e.title) ||
+    (typeof e?.question === "string" && e.question) ||
+    (typeof e?.slug === "string" && e.slug) ||
     null
   );
 }
 
-function extractYesProbability(ev: any): number | null {
-  const op = ev?.outcomePrices ?? ev?.outcome_prices ?? ev?.outcomePrices;
+function extractYesProbability(ev: unknown): number | null {
+  const e = ev as Record<string, unknown>;
+  const op = e?.outcomePrices ?? e?.outcome_prices;
   const prices: number[] = [];
-  if (op && typeof op === "object") {
-    for (const [k, v] of Object.entries(op)) {
+  if (op && typeof op === "object" && !Array.isArray(op)) {
+    for (const [k, v] of Object.entries(op as Record<string, unknown>)) {
       const n = parseNum(v);
       if (n == null) continue;
       // Prefer "yes/true".
@@ -92,8 +94,9 @@ function extractYesProbability(ev: any): number | null {
   if (Array.isArray(op)) {
     // Try {name, price} shapes.
     for (const item of op) {
-      const name = String(item?.name ?? item?.outcome ?? "");
-      const n = parseNum(item?.price ?? item?.p ?? item?.value);
+      const it = item as Record<string, unknown>;
+      const name = String(it?.name ?? it?.outcome ?? "");
+      const n = parseNum(it?.price ?? it?.p ?? it?.value);
       if (n == null) continue;
       if (/yes|true|up/i.test(name)) return clampProbability(n);
       prices.push(n);
@@ -109,12 +112,13 @@ function extractYesProbability(ev: any): number | null {
   return null;
 }
 
-function extractVolume(ev: any): number | null {
+function extractVolume(ev: unknown): number | null {
+  const e = ev as Record<string, unknown>;
   return (
-    parseNum(ev?.volume) ??
-    parseNum(ev?.totalVolume) ??
-    parseNum(ev?.volume24h) ??
-    parseNum(ev?.volume_24h) ??
+    parseNum(e?.volume) ??
+    parseNum(e?.totalVolume) ??
+    parseNum(e?.volume24h) ??
+    parseNum(e?.volume_24h) ??
     null
   );
 }
@@ -124,7 +128,7 @@ export async function fetchPolymarketThreatUpdates(baseThreats: Threat[]): Promi
   updates: ThreatUpdate[];
 }> {
   const url = "https://gamma-api.polymarket.com/events?limit=5";
-  const json = await safeFetchJson<any>(url);
+  const json = await safeFetchJson<Record<string, unknown>>(url);
   if (!json || !Array.isArray(json)) return { ok: false, updates: [] };
 
   const threatsById = new Map<number, Threat>(baseThreats.map((t) => [t.id, t]));

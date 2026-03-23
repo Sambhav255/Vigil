@@ -27,10 +27,11 @@ async function safeFetchJson<T>(url: string): Promise<T | null> {
   }
 }
 
-function countArticles(json: any): number {
-  if (Array.isArray(json?.articles)) return json.articles.length;
-  if (Array.isArray(json?.results)) return json.results.length;
-  if (Array.isArray(json?.data)) return json.data.length;
+function countArticles(json: unknown): number {
+  const j = json as Record<string, unknown>;
+  if (Array.isArray(j?.articles)) return (j.articles as unknown[]).length;
+  if (Array.isArray(j?.results)) return (j.results as unknown[]).length;
+  if (Array.isArray(j?.data)) return (j.data as unknown[]).length;
   return 0;
 }
 
@@ -59,7 +60,6 @@ export async function fetchGdeltVolumeThreatUpdates(baseThreats: Threat[]): Prom
   ok: boolean;
   updates: ThreatUpdate[];
 }> {
-  const threatsById = new Map<number, Threat>(baseThreats.map((t) => [t.id, t]));
   const categories = Array.from(new Set(baseThreats.map((t) => t.category)));
 
   // Compute per-category "volume" using GDELT article counts.
@@ -69,12 +69,12 @@ export async function fetchGdeltVolumeThreatUpdates(baseThreats: Threat[]): Prom
     const query = queryForCategory(category);
     const globalQuery = "world";
     const [regionJson, globalJson] = await Promise.all([
-      safeFetchJson<any>(
+      safeFetchJson<Record<string, unknown>>(
         `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(
           query
         )}&mode=ArtList&format=json`
       ),
-      safeFetchJson<any>(
+      safeFetchJson<Record<string, unknown>>(
         `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(
           globalQuery
         )}&mode=ArtList&format=json`
