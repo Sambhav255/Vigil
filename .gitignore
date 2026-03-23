@@ -1,22 +1,24 @@
-# Editor / local agent
+# Editor / local agent tools
 .cursor/
 .claude/
+.code-review-graph/
 
-# Unrelated local checkout (not part of Vigil)
+# Local checkout not part of Vigil
 everything-claude-code/
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Next.js app (flashpoint-app/)
-flashpoint-app/node_modules/
-flashpoint-app/.next/
-flashpoint-app/out/
-flashpoint-app/build/
-flashpoint-app/.vercel
-flashpoint-app/.env
-flashpoint-app/.env.*
-flashpoint-app/*.tsbuildinfo
-flashpoint-app/npm-debug.log*
-flashpoint-app/coverage/
+# Next.js app artifacts
+vigil-app/node_modules/
+vigil-app/.next/
+vigil-app/out/
+vigil-app/build/
+vigil-app/.vercel
+vigil-app/.env
+vigil-app/.env.*
+vigil-app/*.tsbuildinfo
+vigil-app/npm-debug.log*
+vigil-app/coverage/
+vigil-app/data/hit-rate-log.json

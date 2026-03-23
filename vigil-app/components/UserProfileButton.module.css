@@ -1,0 +1,122 @@
+.wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px 4px 5px;
+  background: rgba(24, 24, 27, 0.5);
+  border: 1px solid rgba(39, 39, 42, 0.6);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: border-color 150ms, background 150ms;
+}
+
+.trigger:hover {
+  background: rgba(39, 39, 42, 0.5);
+  border-color: rgba(63, 63, 70, 0.8);
+}
+
+.avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #f87171;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.name {
+  font-size: 11px;
+  color: #a1a1aa;
+  letter-spacing: 0.02em;
+}
+
+/* Dropdown */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 98;
+}
+
+.dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  width: 220px;
+  background: #141417;
+  border: 1px solid rgba(63, 63, 70, 0.8);
+  border-radius: 8px;
+  z-index: 99;
+  overflow: hidden;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+}
+
+.dropSection {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(39, 39, 42, 0.5);
+}
+
+.dropSection:last-of-type {
+  border-bottom: none;
+}
+
+.dropLabel {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #52525b;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.dropValue {
+  font-size: 12px;
+  color: #d4d4d8;
+}
+
+.watchlist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.watchChip {
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  background: rgba(39, 39, 42, 0.6);
+  border: 1px solid rgba(63, 63, 70, 0.6);
+  border-radius: 3px;
+  color: #a1a1aa;
+  letter-spacing: 0.04em;
+}
+
+.dropFooter {
+  padding: 8px 12px;
+  border-top: 1px solid rgba(39, 39, 42, 0.5);
+}
+
+.signOutBtn {
+  background: none;
+  border: none;
+  color: #f87171;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  transition: color 120ms;
+}
+
+.signOutBtn:hover {
+  color: #fca5a5;
+}
