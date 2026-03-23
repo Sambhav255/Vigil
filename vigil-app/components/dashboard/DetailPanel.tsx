@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import styles from "./VigilDashboard.module.css";
+import styles from "../VigilDashboard.module.css";
 import type { Threat, ViewMode } from "./dashboardTypes";
 import { SEVERITY_COLOR, scoreHex } from "./shared";
 import type { CSSProperties } from "react";

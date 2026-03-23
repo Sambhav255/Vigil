@@ -1,6 +1,6 @@
 "use client";
 
-import styles from "./VigilDashboard.module.css";
+import styles from "../VigilDashboard.module.css";
 import type { CSSProperties } from "react";
 import type { CSSWithCustomProperties } from "./shared";
 import { scoreHex } from "./shared";

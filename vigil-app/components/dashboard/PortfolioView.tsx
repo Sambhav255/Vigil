@@ -1,7 +1,7 @@
 "use client";
 
 import type { RefObject } from "react";
-import styles from "./VigilDashboard.module.css";
+import styles from "../VigilDashboard.module.css";
 import { scoreHex } from "./shared";
 import type { AssetMeta, Threat } from "./dashboardTypes";
 import { STATIC_ASSET_SECTORS } from "@/lib/asset/staticAssetSectors";

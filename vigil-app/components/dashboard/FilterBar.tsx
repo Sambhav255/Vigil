@@ -1,6 +1,6 @@
 "use client";
 
-import styles from "./VigilDashboard.module.css";
+import styles from "../VigilDashboard.module.css";
 import type { AssetFilter, ViewMode } from "./dashboardTypes";
 
 const FILTERS: AssetFilter[] = ["all", "stocks", "crypto", "commodities"];

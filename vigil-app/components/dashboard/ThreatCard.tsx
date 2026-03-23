@@ -1,6 +1,6 @@
 "use client";
 
-import styles from "./VigilDashboard.module.css";
+import styles from "../VigilDashboard.module.css";
 import type { Threat } from "./dashboardTypes";
 import { fmtVol } from "./shared";
 

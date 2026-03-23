@@ -1,6 +1,6 @@
 "use client";
 
-import styles from "./VigilDashboard.module.css";
+import styles from "../VigilDashboard.module.css";
 import { scoreHex } from "./shared";
 import type { ViewMode } from "./dashboardTypes";
 
