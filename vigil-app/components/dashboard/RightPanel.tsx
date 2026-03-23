@@ -123,19 +123,41 @@ export default function RightPanel({ data }: { data: Snapshot }) {
       <div className={styles.rightSection}>
         <div className={styles.sectionHeader}>Signal Hit Rate</div>
         <div className={styles.forceItem}>
-          <div className={styles.forceHeader}>
-            <span className={styles.forceName}>Estimated 30d quality</span>
-            <span className={styles.forceScore}>{hitRate ? `${hitRate.hitRate}%` : "—"}</span>
-          </div>
-          <div className={styles.forceBar}>
-            <div
-              className={styles.forceBarFill}
-              style={{ width: `${Math.max(0, Math.min(100, hitRate?.hitRate ?? 0))}%`, background: scoreHex(hitRate?.hitRate ?? 0) }}
-            />
-          </div>
-          <div className={styles.detailBoxSub}>
-            {hitRate ? `${hitRate.sampleSize} alerts sampled` : "No local hit-rate log available"}
-          </div>
+          {hitRate && hitRate.sampleSize === 0 ? (
+            <div className={styles.detailBoxSub}>
+              Insufficient data · signals accumulate after first run
+            </div>
+          ) : (
+            <>
+              <div className={styles.forceHeader}>
+                <span className={styles.forceName}>Estimated 30d quality</span>
+                <span className={styles.forceScore}>
+                  {hitRate ? (
+                    <>
+                      {hitRate.hitRate}%
+                      {hitRate.sampleSize > 0 && hitRate.sampleSize < 10 && (
+                        <span style={{ fontSize: 9, color: 'var(--text-muted)', marginLeft: 4 }}>
+                          (limited sample)
+                        </span>
+                      )}
+                    </>
+                  ) : '—'}
+                </span>
+              </div>
+              <div className={styles.forceBar}>
+                <div
+                  className={styles.forceBarFill}
+                  style={{
+                    width: `${Math.max(0, Math.min(100, hitRate?.hitRate ?? 0))}%`,
+                    background: scoreHex(hitRate?.hitRate ?? 0),
+                  }}
+                />
+              </div>
+              <div className={styles.detailBoxSub}>
+                {hitRate ? `${hitRate.sampleSize} alerts sampled` : 'No local hit-rate log available'}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
