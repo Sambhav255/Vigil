@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import styles from "./VigilDashboard.module.css";
 import type { Threat, ViewMode } from "./dashboardTypes";
 import { SEVERITY_COLOR, scoreHex } from "./shared";
@@ -50,6 +50,7 @@ export default function DetailPanel({
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const [watchAdded, setWatchAdded] = useState(false);
+  const watchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleAnalyze = useCallback(async () => {
     if (!selected || analyzing) return;
@@ -83,12 +84,14 @@ export default function DetailPanel({
     } finally {
       setAnalyzing(false);
     }
-  }, [selected, analyzing]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `analyzing` omitted intentionally: button is disabled={analyzing}, preventing concurrent calls
+  }, [selected]);
 
   useEffect(() => {
     setAnalysis(null);
     setAnalyzeError(null);
     setWatchAdded(false);
+    if (watchTimerRef.current) clearTimeout(watchTimerRef.current);
   }, [selected?.id]);
 
   const SEV_BADGE: Record<Threat["severity"], string> = {
@@ -270,7 +273,8 @@ export default function DetailPanel({
                   onClick={() => {
                     selected.assets.forEach(addToPortfolio);
                     setWatchAdded(true);
-                    setTimeout(() => setWatchAdded(false), 1500);
+                    if (watchTimerRef.current) clearTimeout(watchTimerRef.current);
+                    watchTimerRef.current = setTimeout(() => setWatchAdded(false), 1500);
                   }}
                   title="Add all affected assets to portfolio"
                 >
@@ -289,7 +293,7 @@ export default function DetailPanel({
             {analysis && (
               <div
                 className={styles.detailSummary}
-                style={{ borderLeftColor: '#6366f14d', marginTop: 10 }}
+                style={{ borderLeftColor: '#6366f14d', marginTop: 10, whiteSpace: 'pre-wrap' }}
               >
                 {analysis}
               </div>
