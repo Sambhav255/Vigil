@@ -59,7 +59,7 @@ function getAssetRisk(
   // Direct threats weight more; related (sector) threats contribute at 50%
   const threats = [...direct, ...related];
   if (!threats.length) {
-    return { score: 0, direction: "neutral" as const, count: 0, topThreat: null as string | null, hasRelated: false };
+    return { score: 0, direction: "neutral" as const, count: 0, relatedCount: 0, topThreat: null as string | null, hasRelated: false };
   }
   const scores = threats.map((t) =>
     t.compositeScore ??
@@ -221,7 +221,7 @@ export default function VigilDashboard() {
           if (!alive) return;
 
           if (json.ok && Array.isArray(json.sectors)) {
-            setAssetMetaBySym((prev) => ({ ...prev, [sym]: { name: json.name ?? null, sectors: json.sectors } }));
+            setAssetMetaBySym((prev) => ({ ...prev, [sym]: { name: json.name ?? null, sectors: json.sectors ?? [] } }));
           } else {
             setAssetMetaBySym((prev) => ({ ...prev, [sym]: { name: json.name ?? null, sectors: STATIC_ASSET_SECTORS[sym] ?? [] } }));
           }

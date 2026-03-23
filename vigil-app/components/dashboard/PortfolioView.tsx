@@ -34,7 +34,7 @@ export default function PortfolioView({
   setPortfolioSearch: (value: string) => void;
   showDrop: boolean;
   setShowDrop: (value: boolean) => void;
-  dropRef: RefObject<HTMLDivElement>;
+  dropRef: RefObject<HTMLDivElement | null>;
   searchSuggestions: string[];
   assetMetaBySym: Record<string, AssetMeta>;
   getRiskForSym: (sym: string) => AssetRisk;

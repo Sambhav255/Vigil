@@ -5,7 +5,7 @@ function contains(haystack: string | undefined | null, ...needles: string[]) {
   return needles.some((n) => h.includes(n.toLowerCase()));
 }
 
-function unique(arr: string[]) {
+function unique(arr: VigilSector[]): VigilSector[] {
   return [...new Set(arr)];
 }
 

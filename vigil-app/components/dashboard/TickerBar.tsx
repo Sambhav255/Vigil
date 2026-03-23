@@ -1,7 +1,7 @@
 "use client";
 
 import styles from "../VigilDashboard.module.css";
-import UserProfileButton from "../UserProfileButton";
+import { UserProfileButton } from "../UserProfileButton";
 import { fmtPrice } from "./shared";
 import type { ViewMode } from "./dashboardTypes";
 
