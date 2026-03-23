@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import styles from "./VigilDashboard.module.css";
 import type { Threat, ViewMode } from "./dashboardTypes";
 import { SEVERITY_COLOR, scoreHex } from "./shared";
@@ -45,6 +45,51 @@ export default function DetailPanel({
   addToPortfolio: (sym: string) => void;
 }) {
   const marginTopStyle = useMemo(() => ({ marginTop: view === "portfolio" ? 14 : 0 } as CSSProperties), [view]);
+
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysis, setAnalysis] = useState<string | null>(null);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  const [watchAdded, setWatchAdded] = useState(false);
+
+  const handleAnalyze = useCallback(async () => {
+    if (!selected || analyzing) return;
+    setAnalyzing(true);
+    setAnalysis(null);
+    setAnalyzeError(null);
+    try {
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          threatTitle: selected.title,
+          category: selected.category,
+          severity: selected.severity,
+          assets: selected.assets,
+          probability: selected.probability,
+        }),
+      });
+      if (res.status === 503) {
+        setAnalyzeError('AI unavailable — set GEMINI_API_KEY to enable');
+        return;
+      }
+      const json = await res.json() as { ok: boolean; analysis?: string; message?: string };
+      if (json.ok && json.analysis) {
+        setAnalysis(json.analysis);
+      } else {
+        setAnalyzeError(json.message ?? 'Analysis failed');
+      }
+    } catch {
+      setAnalyzeError('Network error');
+    } finally {
+      setAnalyzing(false);
+    }
+  }, [selected, analyzing]);
+
+  useEffect(() => {
+    setAnalysis(null);
+    setAnalyzeError(null);
+    setWatchAdded(false);
+  }, [selected?.id]);
 
   const SEV_BADGE: Record<Threat["severity"], string> = {
     critical: styles.badgeCritical,
@@ -222,16 +267,38 @@ export default function DetailPanel({
                 <button
                   type="button"
                   className={styles.analyzeBtn}
-                  onClick={() => selected.assets.forEach(addToPortfolio)}
+                  onClick={() => {
+                    selected.assets.forEach(addToPortfolio);
+                    setWatchAdded(true);
+                    setTimeout(() => setWatchAdded(false), 1500);
+                  }}
                   title="Add all affected assets to portfolio"
                 >
-                  + Watch Assets
+                  {watchAdded ? 'Added ✓' : '+ Watch Assets'}
                 </button>
-                <button type="button" className={styles.analyzeBtn}>
-                  ⚡ Analyze
+                <button
+                  type="button"
+                  className={styles.analyzeBtn}
+                  onClick={handleAnalyze}
+                  disabled={analyzing}
+                >
+                  ⚡ {analyzing ? 'Analyzing…' : 'Analyze'}
                 </button>
               </div>
             </div>
+            {analysis && (
+              <div
+                className={styles.detailSummary}
+                style={{ borderLeftColor: '#6366f14d', marginTop: 10 }}
+              >
+                {analysis}
+              </div>
+            )}
+            {analyzeError && (
+              <div style={{ fontSize: 10, color: '#c42626', marginTop: 8 }}>
+                {analyzeError}
+              </div>
+            )}
           </div>
         )}
       </div>
