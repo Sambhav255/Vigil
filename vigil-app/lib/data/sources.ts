@@ -1,8 +1,13 @@
 import { FORCES, SECTORS, THREATS, TICKERS } from "@/lib/config/constants";
 import { fetchFredData, computeMacroStressScore } from "@/lib/data/fred";
+import { fetchGprIndex } from "@/lib/data/gpr";
+import { fetchPolymarketThreatUpdates } from "@/lib/data/polymarket";
+import { fetchKalshiThreatUpdates } from "@/lib/data/kalshi";
+import { fetchGdeltVolumeThreatUpdates } from "@/lib/data/gdelt";
 import { fetchSignificantEarthquakes } from "@/lib/data/usgs";
 import { fetchNasaEonetEvents } from "@/lib/data/eonet";
 import type { ForceData, SectorData, SourceSnapshot, Threat } from "@/lib/types";
+import { logSourceFailure } from "@/lib/logging/sourceLogger";
 
 export type DashboardData = {
   threats: Threat[];
@@ -28,6 +33,7 @@ async function safeFetchJson<T>(url: string, options?: RequestInit): Promise<T |
       clearTimeout(timer);
     }
   } catch {
+    logSourceFailure("sources", "safeFetchJson failed", { url });
     return null;
   }
 }
@@ -54,20 +60,67 @@ async function fetchCoinpaprikaFallback(): Promise<{
   };
 }
 
+function parseAlphaVantageBatchStockQuotes(json: unknown): Map<string, { price: number; chg: number }> | null {
+  if (!json || typeof json !== "object") return null;
+  const obj = json as Record<string, unknown>;
+
+  const quotes =
+    (Array.isArray(obj["Stock Quotes"]) ? obj["Stock Quotes"] : null) ||
+    (Array.isArray(obj["stockQuotes"]) ? obj["stockQuotes"] : null) ||
+    (Array.isArray(obj["quotes"]) ? obj["quotes"] : null);
+  if (!quotes) return null;
+
+  const out = new Map<string, { price: number; chg: number }>();
+  for (const row of quotes) {
+    if (!row || typeof row !== "object") continue;
+    const r = row as Record<string, unknown>;
+
+    const sym =
+      (typeof r["1. symbol"] === "string" && r["1. symbol"]) ||
+      (typeof r["symbol"] === "string" && r["symbol"]) ||
+      (typeof r["t"] === "string" && r["t"]) ||
+      null;
+
+    const priceRaw = (r["2. price"] ?? r["price"]) as unknown;
+    const chgRaw = (r["3. percent change"] ?? r["chg"] ?? r["change"]) as unknown;
+
+    const price =
+      typeof priceRaw === "number"
+        ? priceRaw
+        : typeof priceRaw === "string"
+          ? Number(priceRaw)
+          : null;
+    const chg =
+      typeof chgRaw === "number"
+        ? chgRaw
+        : typeof chgRaw === "string"
+          ? Number(chgRaw)
+          : null;
+
+    if (!sym || !Number.isFinite(price) || !Number.isFinite(chg)) continue;
+    out.set(String(sym), { price: price as number, chg: chg as number });
+  }
+
+  return out;
+}
+
 export async function getDashboardData(): Promise<DashboardData> {
   const now = Date.now();
   const alphaKey = process.env.ALPHA_VANTAGE_API_KEY;
   const cgKey = process.env.COINGECKO_DEMO_API_KEY;
   const fredKey = process.env.FRED_API_KEY;
+  const gprKey = true;
+
+  // Clone seed threats so we can apply live updates (probability/volume/probDelta/probHistory).
+  // Seed `THREATS` is treated as a read-only baseline.
+  const baseThreats: Threat[] = THREATS.map((t) => ({ ...t, probHistory: [...t.probHistory] }));
 
   // Fetch all sources in parallel
-  const [polymarket, kalshi, gdelt, alpha, coingecko, usgsResult, eonetResult, fredData] =
+  const [polymarketRes, kalshiRes, gdeltRes, alpha, coingecko, usgsResult, eonetResult, fredData, gprIndexValue] =
     await Promise.all([
-      safeFetchJson<unknown>("https://gamma-api.polymarket.com/events?limit=5"),
-      safeFetchJson<unknown>("https://api.elections.kalshi.com/trade-api/v2/markets"),
-      safeFetchJson<unknown>(
-        "https://api.gdeltproject.org/api/v2/doc/doc?query=geopolitical&mode=ArtList&format=json"
-      ),
+      fetchPolymarketThreatUpdates(baseThreats),
+      fetchKalshiThreatUpdates(baseThreats),
+      fetchGdeltVolumeThreatUpdates(baseThreats),
       alphaKey
         ? safeFetchJson<unknown>(
             `https://www.alphavantage.co/query?function=BATCH_STOCK_QUOTES&symbols=SPY,QQQ,TSLA,NVDA&apikey=${alphaKey}`
@@ -81,6 +134,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       fetchSignificantEarthquakes(),
       fetchNasaEonetEvents(),
       fredKey ? fetchFredData(fredKey) : null,
+      gprKey ? fetchGprIndex() : Promise.resolve(120),
     ]);
 
   // Crypto fallback: if CoinGecko is unavailable, use Coinpaprika (free, no auth)
@@ -89,6 +143,18 @@ export async function getDashboardData(): Promise<DashboardData> {
 
   // Build tickers — upgrade BTC/ETH with live data if available
   let tickers = [...TICKERS];
+
+  // Upgrade US equities with Alpha Vantage if available.
+  if (alpha) {
+    const alphaQuotes = parseAlphaVantageBatchStockQuotes(alpha);
+    if (alphaQuotes && alphaQuotes.size > 0) {
+      tickers = tickers.map((t) => {
+        const q = alphaQuotes.get(t.sym);
+        return q ? { ...t, price: q.price, chg: q.chg } : t;
+      });
+    }
+  }
+
   if (coingecko) {
     const cg = coingecko as {
       bitcoin?: { usd?: number; usd_24h_change?: number };
@@ -115,12 +181,26 @@ export async function getDashboardData(): Promise<DashboardData> {
     });
   }
 
+  // Apply live threat updates (Polymarket/Kalshi/GDELT) onto seed threats.
+  const applyThreatUpdates = (updates: Array<{ id: number }>) => {
+    const byId = new Map(baseThreats.map((t) => [t.id, t]));
+    for (const u of updates) {
+      const t = byId.get(u.id);
+      if (!t) continue;
+      Object.assign(t, u);
+    }
+  };
+
+  applyThreatUpdates(polymarketRes.updates);
+  applyThreatUpdates(kalshiRes.updates);
+  applyThreatUpdates(gdeltRes.updates);
+
   // Merge dynamic threat cards from USGS + EONET with static baseline
   const dynamicThreats: Threat[] = [
     ...usgsResult.threats,
     ...eonetResult.threats,
   ];
-  const threats = [...THREATS, ...dynamicThreats];
+  const threats = [...baseThreats, ...dynamicThreats];
 
   // Build forces — use FRED macro score if available, else static fallback
   const macroScore = fredData ? computeMacroStressScore(fredData) : FORCES.find((f) => f.name === "Macro")?.score ?? 61;
@@ -139,13 +219,13 @@ export async function getDashboardData(): Promise<DashboardData> {
   return {
     threats,
     tickers,
-    gprIndex: 187,
+    gprIndex: gprIndexValue,
     sectors: SECTORS,
     forces: climateForces,
     sourceSnapshots: {
-      polymarket: { lastUpdatedMs: now, ok: !!polymarket },
-      kalshi: { lastUpdatedMs: now, ok: !!kalshi },
-      gdelt: { lastUpdatedMs: now, ok: !!gdelt },
+      polymarket: { lastUpdatedMs: now, ok: polymarketRes.ok },
+      kalshi: { lastUpdatedMs: now, ok: kalshiRes.ok },
+      gdelt: { lastUpdatedMs: now, ok: gdeltRes.ok },
       alphaVantage: { lastUpdatedMs: now, ok: !!alpha || !alphaKey },
       coinGecko: { lastUpdatedMs: now, ok: cryptoOk },
       usgs: { lastUpdatedMs: usgsResult.lastUpdatedMs, ok: usgsResult.ok },

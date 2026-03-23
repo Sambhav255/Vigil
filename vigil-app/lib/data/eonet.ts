@@ -5,6 +5,7 @@
  */
 
 import type { Threat } from "@/lib/types";
+import { logSourceFailure } from "@/lib/logging/sourceLogger";
 
 type EonetEvent = {
   id: string;
@@ -59,12 +60,16 @@ export async function fetchNasaEonetEvents(): Promise<{
       const primaryCategory = event.categories[0];
       if (!primaryCategory) continue;
       const { sector, assets } = categoryToSector(primaryCategory.id);
+      const firstDate = event.geometry?.[0]?.date;
+      const createdAtParsed = firstDate ? Date.parse(firstDate) : NaN;
+      const createdAt = Number.isFinite(createdAtParsed) ? createdAtParsed : now;
 
       threats.push({
         id: nextId++,
         title: event.title.slice(0, 80),
         category: "Climate",
         severity: "medium",
+        createdAt,
         assets,
         direction: "bearish",
         probability: 0.7,
@@ -84,6 +89,7 @@ export async function fetchNasaEonetEvents(): Promise<{
 
     return { threats, ok: true, lastUpdatedMs: now };
   } catch {
+    logSourceFailure("nasa_eonet", "fetchNasaEonetEvents failed");
     return { threats: [], ok: false, lastUpdatedMs: now };
   }
 }

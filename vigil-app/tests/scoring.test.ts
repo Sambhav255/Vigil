@@ -25,7 +25,7 @@ describe("scoring core", () => {
 
   it("computes bounded global risk index using sigmoid", () => {
     const value = computeGlobalRiskIndex(
-      { geopolitical: 80, macroeconomic: 65, sentiment: 55, supplyChain: 40, climate: 30 },
+      { geopolitical: 80, macroeconomic: 65, sentiment: 55, supplyChain: 40, climate: 30 } as Record<string, number>,
       187
     );
     expect(value).toBeGreaterThan(0);

@@ -7,6 +7,7 @@ export type Threat = {
   title: string;
   category: string;
   severity: Severity;
+  createdAt: number;
   assets: string[];
   direction: ThreatDirection;
   probability: number;

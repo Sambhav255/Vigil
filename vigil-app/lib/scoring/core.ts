@@ -17,23 +17,41 @@ export function applySingleSourceSeverityCap(severity: Severity, sourceCount: nu
   return severity;
 }
 
+function normalizeForceKey(key: string): string {
+  // Normalize "Supply Chain" => "supplychain", "Macro" => "macro", etc.
+  return key.toLowerCase().replace(/[\s\-_]/g, "");
+}
+
 export function computeGlobalRiskIndex(
-  categories: {
-    geopolitical: number;
-    macroeconomic: number;
-    sentiment: number;
-    supplyChain: number;
-    climate: number;
-  },
+  categories: Record<string, number>,
   gprIndex: number
 ) {
   const gprFactor = 1 + Math.max(0, (gprIndex - 100) / 500);
+
+  // Canonicalize inputs to the keys used by CATEGORY_WEIGHTS.
+  const byCanonicalKey: Partial<Record<keyof typeof CATEGORY_WEIGHTS, number>> = {};
+  for (const [rawKey, value] of Object.entries(categories)) {
+    const normalized = normalizeForceKey(rawKey);
+    if (normalized === "geopolitical") byCanonicalKey.geopolitical = value;
+    else if (normalized === "macro") byCanonicalKey.macroeconomic = value;
+    else if (normalized === "macroeconomic") byCanonicalKey.macroeconomic = value;
+    else if (normalized === "sentiment") byCanonicalKey.sentiment = value;
+    else if (normalized === "supplychain") byCanonicalKey.supplyChain = value;
+    else if (normalized === "climate") byCanonicalKey.climate = value;
+  }
+
+  const geo = byCanonicalKey.geopolitical ?? 0;
+  const macro = byCanonicalKey.macroeconomic ?? 0;
+  const sentiment = byCanonicalKey.sentiment ?? 0;
+  const supplyChain = byCanonicalKey.supplyChain ?? 0;
+  const climate = byCanonicalKey.climate ?? 0;
+
   const weighted =
-    categories.geopolitical * CATEGORY_WEIGHTS.geopolitical * gprFactor +
-    categories.macroeconomic * CATEGORY_WEIGHTS.macroeconomic +
-    categories.sentiment * CATEGORY_WEIGHTS.sentiment +
-    categories.supplyChain * CATEGORY_WEIGHTS.supplyChain +
-    categories.climate * CATEGORY_WEIGHTS.climate;
+    geo * CATEGORY_WEIGHTS.geopolitical * gprFactor +
+    macro * CATEGORY_WEIGHTS.macroeconomic +
+    sentiment * CATEGORY_WEIGHTS.sentiment +
+    supplyChain * CATEGORY_WEIGHTS.supplyChain +
+    climate * CATEGORY_WEIGHTS.climate;
   return 100 / (1 + Math.exp(-(weighted - 50) / 10));
 }
 

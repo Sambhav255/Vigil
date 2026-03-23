@@ -1,4 +1,5 @@
 import { buildDashboardSnapshot } from "@/lib/pipeline";
+import { createHash } from "node:crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +29,7 @@ async function refreshCache(): Promise<void> {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const now = Date.now();
   const stale = cache && now - cache.fetchedAt > TTL_MS;
   const empty = cache === null;
@@ -45,9 +46,24 @@ export async function GET() {
     return new Response("Service unavailable", { status: 503 });
   }
 
+  const payload = JSON.stringify(cache.snapshot);
+  const etag = `"${createHash("sha1").update(payload).digest("hex")}"`;
+  const headerEtag = request.headers.get("if-none-match");
+
+  if (headerEtag && headerEtag === etag) {
+    return new Response(null, {
+      status: 304,
+      headers: {
+        ETag: etag,
+        "Cache-Control": "no-store",
+      },
+    });
+  }
+
   return Response.json(cache.snapshot, {
     headers: {
       "Cache-Control": "no-store",
+      ETag: etag,
       "X-Cache": empty ? "MISS" : stale ? "STALE" : "HIT",
       "X-Cache-Age": String(Math.round((now - cache.fetchedAt) / 1000)),
     },

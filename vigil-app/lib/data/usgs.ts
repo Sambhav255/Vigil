@@ -5,6 +5,7 @@
  */
 
 import type { Threat } from "@/lib/types";
+import { logSourceFailure } from "@/lib/logging/sourceLogger";
 
 type UsgsFeature = {
   properties: {
@@ -106,6 +107,7 @@ export async function fetchSignificantEarthquakes(): Promise<{
         title: `M${mag.toFixed(1)} Earthquake: ${place.slice(0, 60)}`,
         category: "Climate",
         severity,
+        createdAt: typeof time === "number" && Number.isFinite(time) ? time : now,
         assets,
         direction: "bearish",
         probability: hasTsunami ? 0.85 : Math.min(0.9, 0.4 + (mag - 5) * 0.1),
@@ -125,6 +127,7 @@ export async function fetchSignificantEarthquakes(): Promise<{
 
     return { threats, ok: true, lastUpdatedMs: lastEventMs };
   } catch {
+    logSourceFailure("usgs", "fetchSignificantEarthquakes failed");
     return { threats: [], ok: false, lastUpdatedMs: now };
   }
 }

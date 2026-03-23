@@ -19,7 +19,19 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "Vigil — Geopolitical Intelligence",
-  description: "Vigil: real-time geopolitical event severity intelligence dashboard",
+  description: "Real-time geopolitical threat intelligence for traders and risk teams.",
+  openGraph: {
+    title: "Vigil — Geopolitical Intelligence",
+    description: "Track geopolitical threats, probabilities, and portfolio exposure in real time.",
+    type: "website",
+    url: "https://vigil.local",
+    siteName: "Vigil",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Vigil — Geopolitical Intelligence",
+    description: "Track geopolitical threats, probabilities, and portfolio exposure in real time.",
+  },
 };
 
 export default function RootLayout({

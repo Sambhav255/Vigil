@@ -8,6 +8,17 @@
   flex-direction: column;
   background: var(--bg-base);
   color: var(--text-primary);
+  position: relative;
+}
+
+.shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.75) 0.6px, transparent 0.6px);
+  background-size: 3px 3px;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -303,6 +314,17 @@
   color: var(--text-muted);
 }
 
+.filterNotifyBtn {
+  border: 1px solid rgba(113, 113, 122, 0.4);
+  border-radius: 4px;
+  background: rgba(39, 39, 42, 0.3);
+  color: var(--text-secondary);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 6px;
+}
+
 .liveDot {
   width: 6px;
   height: 6px;
@@ -387,6 +409,19 @@
 .threatCard:hover {
   background: var(--bg-hover);
   border-color: rgba(63, 63, 70, 0.8);
+}
+
+.threatChanged {
+  animation: threatChangedPulse 1.2s ease-out;
+}
+
+@keyframes threatChangedPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.35);
+  }
+  100% {
+    box-shadow: 0 0 0 8px rgba(59, 130, 246, 0);
+  }
 }
 
 /* Severity left border — 60% opacity */
@@ -581,6 +616,21 @@
 .probDeltaNeg     { font-family: var(--font-mono); color: var(--sev-low); }
 .probDeltaNeutral { font-family: var(--font-mono); color: var(--text-muted); }
 
+.threatRelativeTime {
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+.threatChangedBadge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.12);
+}
+
 .cascadeEta {
   font-family: var(--font-mono);
   font-size: 9px;
@@ -769,6 +819,47 @@
   font-size: 9px;
   color: var(--text-muted);
   margin-top: 3px;
+}
+
+.detailTimeline {
+  margin-top: 10px;
+  margin-bottom: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: rgba(24, 24, 27, 0.45);
+}
+
+.detailTimelineList {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.detailTimelineItem {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+}
+
+.detailTimelineDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(99, 102, 241, 0.8);
+}
+
+.detailTimelineLabel {
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+.detailTimelineValue {
+  font-family: var(--font-mono);
+  color: #e4e4e7;
 }
 
 .detailFooter {
@@ -978,6 +1069,55 @@
 }
 
 /* ═══════════════════════════════════════════════════
+   SKELETON SHIMMER (Phase 4.7)
+═══════════════════════════════════════════════════ */
+.skeletonShimmer {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.skeletonShimmer::after {
+  content: "";
+  position: absolute;
+  inset: -100% -40%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.00),
+    rgba(255, 255, 255, 0.18),
+    rgba(255, 255, 255, 0.00)
+  );
+  transform: translateX(-40%);
+  animation: skeletonShimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes skeletonShimmer {
+  0% {
+    transform: translateX(-40%);
+  }
+  100% {
+    transform: translateX(40%);
+  }
+}
+
+.skeletonBlock {
+  border-radius: 6px;
+  height: 10px;
+}
+
+.skeletonCard {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(39, 39, 42, 0.5);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.skeletonMetricInner {
+  display: grid;
+  gap: 10px;
+}
+
+/* ═══════════════════════════════════════════════════
    PORTFOLIO PANEL
 ═══════════════════════════════════════════════════ */
 .portfolioSearchRow {
@@ -1099,6 +1239,62 @@
 }
 
 /* Portfolio grid */
+.portfolioSummaryRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.portfolioSummaryCard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+  padding: 8px 10px;
+}
+
+.portfolioSummaryLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.portfolioSummaryValue {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.portfolioConcentrationWarn {
+  font-family: var(--font-mono);
+  color: var(--sev-critical);
+}
+
+.portfolioConcentrationOk {
+  font-family: var(--font-mono);
+  color: var(--sev-low);
+}
+
+.portfolioCopyBtn {
+  border: 1px solid rgba(113, 113, 122, 0.4);
+  border-radius: 6px;
+  background: rgba(39, 39, 42, 0.3);
+  color: var(--text-secondary);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 8px 10px;
+}
+
+.portfolioCopyBtn:hover {
+  color: var(--text-primary);
+  border-color: rgba(113, 113, 122, 0.7);
+}
+
 .portfolioGrid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1200,4 +1396,100 @@
   color: var(--sev-low);
   margin-left: 2px;
   vertical-align: middle;
+}
+
+@media (max-width: 1024px) {
+  .metricRow {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .columns {
+    grid-template-columns: 320px 1fr;
+  }
+
+  .colRight {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--border);
+  }
+
+  .portfolioGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .portfolioSummaryRow {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .portfolioCopyBtn {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 768px) {
+  .shell {
+    height: auto;
+    min-height: 100vh;
+    overflow: auto;
+  }
+
+  .tickerBar {
+    height: 34px;
+  }
+
+  .metricRow {
+    grid-template-columns: 1fr;
+    padding: 8px 10px;
+  }
+
+  .filterBar {
+    flex-wrap: wrap;
+    row-gap: 8px;
+    padding: 8px 10px;
+  }
+
+  .filterSpacer {
+    display: none;
+  }
+
+  .filterSearch {
+    width: 100%;
+    order: 2;
+  }
+
+  .filterSearchInput {
+    width: 100%;
+  }
+
+  .filterRight {
+    width: 100%;
+    justify-content: space-between;
+    order: 3;
+  }
+
+  .columns {
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  .colLeft,
+  .colCenter,
+  .colRight {
+    border-right: none;
+    border-top: 1px solid var(--border);
+    overflow: visible;
+    padding: 10px;
+  }
+
+  .heatmapGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .detailPanel {
+    margin-top: 12px;
+  }
+
+  .portfolioSummaryRow {
+    grid-template-columns: 1fr;
+  }
 }

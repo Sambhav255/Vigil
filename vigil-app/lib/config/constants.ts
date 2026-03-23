@@ -2,6 +2,16 @@ import type { ForceData, SectorData, Threat } from "@/lib/types";
 
 export const SOURCE_STALE_AFTER_MS = 15 * 60 * 1000;
 
+const NOW_MS = Date.now();
+function createdAtForMomentum(momentum: Threat["momentum"]): number {
+  // Seed threats should decay: recent for escalating/peaking, older for fading.
+  const dayMs = 24 * 60 * 60 * 1000;
+  if (momentum === "escalating") return NOW_MS - 2 * dayMs;
+  if (momentum === "peaking") return NOW_MS - 1 * dayMs;
+  if (momentum === "fading") return NOW_MS - 10 * dayMs;
+  return NOW_MS - 7 * dayMs;
+}
+
 export const CATEGORY_WEIGHTS = {
   geopolitical: 0.35,
   macroeconomic: 0.25,
@@ -44,6 +54,7 @@ export const THREATS: Threat[] = [
     title: "Taiwan Strait Military Escalation",
     category: "Geopolitical",
     severity: "critical",
+    createdAt: createdAtForMomentum("escalating"),
     assets: ["NVDA", "TSM", "AAPL", "QQQ"],
     direction: "bearish",
     probability: 0.23,
@@ -64,6 +75,7 @@ export const THREATS: Threat[] = [
     title: "Federal Reserve Emergency Rate Decision",
     category: "Macroeconomic",
     severity: "high",
+    createdAt: createdAtForMomentum("escalating"),
     assets: ["SPY", "QQQ", "TLT", "DXY"],
     direction: "bearish",
     probability: 0.41,
@@ -84,6 +96,7 @@ export const THREATS: Threat[] = [
     title: "EU Comprehensive Crypto Regulation",
     category: "Regulatory",
     severity: "high",
+    createdAt: createdAtForMomentum("peaking"),
     assets: ["BTC", "ETH", "COIN", "MSTR"],
     direction: "bearish",
     probability: 0.67,
@@ -104,6 +117,7 @@ export const THREATS: Threat[] = [
     title: "Gulf of Aden Shipping Route Disruption",
     category: "Supply Chain",
     severity: "medium",
+    createdAt: createdAtForMomentum("fading"),
     assets: ["CL", "XLE", "FDX"],
     direction: "bearish",
     probability: 0.78,
@@ -124,6 +138,7 @@ export const THREATS: Threat[] = [
     title: "US-China Semiconductor Export Controls",
     category: "Regulatory",
     severity: "high",
+    createdAt: createdAtForMomentum("escalating"),
     assets: ["NVDA", "AMD", "ASML", "LRCX"],
     direction: "bearish",
     probability: 0.54,
@@ -144,6 +159,7 @@ export const THREATS: Threat[] = [
     title: "Category 5 Hurricane Approaching Gulf Coast",
     category: "Climate",
     severity: "medium",
+    createdAt: createdAtForMomentum("escalating"),
     assets: ["CL", "NG", "XLE", "CORN"],
     direction: "bearish",
     probability: 0.89,
@@ -164,6 +180,7 @@ export const THREATS: Threat[] = [
     title: "Bitcoin ETF Institutional Rotation Signal",
     category: "Sentiment",
     severity: "low",
+    createdAt: createdAtForMomentum("fading"),
     assets: ["BTC", "IBIT", "GBTC"],
     direction: "bullish",
     probability: 0.33,
@@ -184,6 +201,7 @@ export const THREATS: Threat[] = [
     title: "Russian Energy Infrastructure Sanctions",
     category: "Geopolitical",
     severity: "medium",
+    createdAt: createdAtForMomentum("escalating"),
     assets: ["CL", "NG", "XLE"],
     direction: "bearish",
     probability: 0.46,
@@ -204,6 +222,7 @@ export const THREATS: Threat[] = [
     title: "NVIDIA Antitrust Investigation Expansion",
     category: "Regulatory",
     severity: "medium",
+    createdAt: createdAtForMomentum("peaking"),
     assets: ["NVDA", "AMD", "INTC"],
     direction: "bearish",
     probability: 0.38,

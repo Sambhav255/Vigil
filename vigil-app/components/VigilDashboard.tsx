@@ -5,8 +5,16 @@ import type { CSSProperties } from "react";
 
 type CSSWithCustomProperties = CSSProperties & Record<string, string>;
 import styles from "./VigilDashboard.module.css";
-import { UserProfileButton } from "./UserProfileButton";
+import ErrorBoundary from "./ErrorBoundary";
 import { STATIC_ASSET_SECTORS } from "@/lib/asset/staticAssetSectors";
+import TickerBar from "./dashboard/TickerBar";
+import MetricRow from "./dashboard/MetricRow";
+import FilterBar from "./dashboard/FilterBar";
+import ThreatCard from "./dashboard/ThreatCard";
+import SectorHeatmap from "./dashboard/SectorHeatmap";
+import DetailPanel from "./dashboard/DetailPanel";
+import RightPanel from "./dashboard/RightPanel";
+import PortfolioView from "./dashboard/PortfolioView";
 
 // ── Type inferred from pipeline return ──────────────────────────────────────
 type Snapshot = Awaited<ReturnType<typeof import("@/lib/pipeline").buildDashboardSnapshot>>;
@@ -201,6 +209,9 @@ export default function VigilDashboard() {
   const [portfolioSearch, setPortfolioSearch] = useState("");
   const [showDrop, setShowDrop] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
+  const [changedThreats, setChangedThreats] = useState<Record<number, "new" | "prob" | "sev">>({});
+  const prevThreatByIdRef = useRef<Map<number, Threat>>(new Map());
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   // Fetch data every 15 s
   useEffect(() => {
@@ -209,7 +220,46 @@ export default function VigilDashboard() {
       try {
         const res = await fetch("/api/dashboard", { cache: "no-store" });
         const json = (await res.json()) as Snapshot;
-        if (alive) setData(json);
+        if (alive) {
+          const previous = prevThreatByIdRef.current;
+          const next = new Map<number, Threat>();
+          const delta: Record<number, "new" | "prob" | "sev"> = {};
+
+          for (const t of json.threats) {
+            next.set(t.id, t);
+            const prev = previous.get(t.id);
+            if (!prev) {
+              delta[t.id] = "new";
+              continue;
+            }
+            if (t.severity !== prev.severity) {
+              delta[t.id] = "sev";
+              continue;
+            }
+            if (Math.abs(t.probability - prev.probability) > 0.02) {
+              delta[t.id] = "prob";
+            }
+
+            if (
+              notificationsEnabled &&
+              typeof window !== "undefined" &&
+              "Notification" in window &&
+              Notification.permission === "granted"
+            ) {
+              const prevScore = prev.compositeScore ?? 0;
+              const nextScore = t.compositeScore ?? 0;
+              if (prevScore < 70 && nextScore >= 70) {
+                new Notification(`Vigil Alert: ${t.title}`, {
+                  body: `${Math.round(nextScore)}/100 risk · ${(t.probability * 100).toFixed(0)}% probability`,
+                });
+              }
+            }
+          }
+
+          prevThreatByIdRef.current = next;
+          setChangedThreats(delta);
+          setData(json);
+        }
       } catch {
         // fail silently — will retry on next interval
       }
@@ -221,6 +271,12 @@ export default function VigilDashboard() {
       clearInterval(id);
     };
   }, []);
+
+  useEffect(() => {
+    if (!Object.keys(changedThreats).length) return;
+    const id = setTimeout(() => setChangedThreats({}), 5000);
+    return () => clearTimeout(id);
+  }, [changedThreats]);
 
   // Live clock
   useEffect(() => {
@@ -236,6 +292,8 @@ export default function VigilDashboard() {
         const parsed = JSON.parse(raw) as string[];
         setPortfolio(parsed);
       }
+      const notif = localStorage.getItem("vigil-notifications-enabled");
+      if (notif === "true") setNotificationsEnabled(true);
     } catch {
       /* ignore corrupt storage */
     }
@@ -295,6 +353,11 @@ export default function VigilDashboard() {
     localStorage.setItem("vigil-portfolio", JSON.stringify(portfolio));
   }, [portfolio, clientUiReady]);
 
+  useEffect(() => {
+    if (!clientUiReady) return;
+    localStorage.setItem("vigil-notifications-enabled", notificationsEnabled ? "true" : "false");
+  }, [notificationsEnabled, clientUiReady]);
+
   // Close search dropdown when clicking outside
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
@@ -320,6 +383,18 @@ export default function VigilDashboard() {
 
   const removeFromPortfolio = useCallback((sym: string) => {
     setPortfolio((p) => p.filter((s) => s !== sym));
+  }, []);
+
+  const reorderPortfolio = useCallback((fromIdx: number, toIdx: number) => {
+    setPortfolio((p) => {
+      if (fromIdx < 0 || toIdx < 0 || fromIdx >= p.length || toIdx >= p.length || fromIdx === toIdx) {
+        return p;
+      }
+      const next = [...p];
+      const [moved] = next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, moved);
+      return next;
+    });
   }, []);
 
   // Threats indexed by asset symbol
@@ -401,6 +476,62 @@ export default function VigilDashboard() {
   }, []);
 
   useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      const typing =
+        tag === "input" || tag === "textarea" || tag === "select" || !!target?.isContentEditable;
+      if (typing && e.key !== "Escape") return;
+
+      if (e.key === "j") {
+        e.preventDefault();
+        if (!visibleThreats.length) return;
+        const idx = selected ? visibleThreats.findIndex((t) => t.id === selected.id) : -1;
+        const next = visibleThreats[Math.min(visibleThreats.length - 1, idx + 1)] ?? visibleThreats[0];
+        setSelected(next);
+      } else if (e.key === "k") {
+        e.preventDefault();
+        if (!visibleThreats.length) return;
+        const idx = selected ? visibleThreats.findIndex((t) => t.id === selected.id) : 0;
+        const next = visibleThreats[Math.max(0, idx - 1)] ?? visibleThreats[0];
+        setSelected(next);
+      } else if (e.key === "Enter") {
+        if (!selected && visibleThreats.length) setSelected(visibleThreats[0]);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setSelected(null);
+        setAssetSearch("");
+        setShowDrop(false);
+      } else if (e.key === "1") {
+        e.preventDefault();
+        setView("dashboard");
+        setAssetFilter("all");
+      } else if (e.key === "2") {
+        e.preventDefault();
+        setView("dashboard");
+        setAssetFilter("stocks");
+      } else if (e.key === "3") {
+        e.preventDefault();
+        setView("dashboard");
+        setAssetFilter("crypto");
+      } else if (e.key === "4") {
+        e.preventDefault();
+        setView("dashboard");
+        setAssetFilter("commodities");
+      } else if (e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        setView((v) => (v === "portfolio" ? "dashboard" : "portfolio"));
+      } else if (e.key === "/") {
+        e.preventDefault();
+        const input = document.querySelector<HTMLInputElement>(`input.${styles.filterSearchInput}`);
+        input?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [visibleThreats, selected]);
+
+  useEffect(() => {
     if (sectorFilter) setAssetFilter("all");
   }, [sectorFilter]);
 
@@ -436,165 +567,189 @@ export default function VigilDashboard() {
     <div className={styles.shell}>
 
       {/* ─── TICKER BAR ─── */}
-      <div className={styles.tickerBar}>
-        <div className={styles.tickerBrand} aria-label="Vigil">
-          VIGIL
-        </div>
-        <div className={styles.tickerScroll}>
-          <div className={styles.tickerTrack}>
-            {tickerSet.map((t, i) => (
-              <span key={i} className={styles.tickerItem}>
-                <span className={styles.tickerSym}>{t.sym}</span>
-                <span className={styles.tickerPrice}>
-                  ${fmtPrice(t.price)}
-                </span>
-                <span className={t.chg >= 0 ? styles.tickerChgPos : styles.tickerChgNeg}>
-                  {t.chg >= 0 ? "+" : ""}
-                  {t.chg.toFixed(2)}%
-                </span>
-              </span>
-            ))}
-          </div>
-        </div>
-        {/* User profile in top-right of ticker bar */}
-        <div style={{ display: "flex", alignItems: "center", padding: "0 12px", flexShrink: 0 }}>
-          <UserProfileButton />
-        </div>
-      </div>
+      <TickerBar tickerSet={tickerSet} />
 
       {/* ─── METRIC ROW ─── */}
-      <div className={styles.metricRow}>
-        <div className={styles.metricCard}>
-          <div className={styles.metricLabel}>Active Threats</div>
-          <div className={styles.metricValue}>{data?.threats.length ?? "—"}</div>
-          <div className={styles.metricSub}>across {categories} categories</div>
+      {!data ? (
+        <div className={styles.metricRow} aria-hidden="true">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className={styles.metricCard}>
+              <div
+                className={styles.skeletonShimmer}
+                style={{ width: "60%", height: 10, marginBottom: 10, borderRadius: 6 }}
+              />
+              <div className={styles.skeletonShimmer} style={{ width: "80%", height: 24, borderRadius: 6 }} />
+              <div
+                className={styles.skeletonShimmer}
+                style={{ width: "55%", height: 10, marginTop: 10, borderRadius: 6 }}
+              />
+              <div
+                className={styles.skeletonShimmer}
+                style={{ width: "90%", height: 2, marginTop: 8, borderRadius: 999 }}
+              />
+            </div>
+          ))}
         </div>
-
-        <div className={styles.metricCard}>
-          <div className={styles.metricLabel}>Global Risk Index</div>
-          <div className={`${styles.metricValue} ${scoreClass(risk)}`}>
-            {risk.toFixed(0)}
-            <span className={styles.metricValueUnit}>/100</span>
-          </div>
-          <div className={styles.riskBar}>
-            <div
-              className={styles.riskBarFill}
-              style={{ width: `${risk}%`, background: scoreHex(risk) }}
-            />
-          </div>
-        </div>
-
-        <div className={styles.metricCard}>
-          <div className={styles.metricLabel}>GPR Index</div>
-          <div className={styles.metricValue}>{gpr}</div>
-          <div className={styles.metricSub}>{gpr >= 180 ? "(elevated)" : "(normal)"}</div>
-        </div>
-
-        <div className={styles.metricCard}>
-          <div className={styles.metricLabel}>
-            {view === "portfolio" ? "Portfolio Positions" : "Assets at Risk"}
-          </div>
-          <div className={styles.metricValue}>
-            {view === "portfolio" ? portfolio.length || "—" : allAssets.length || "—"}
-          </div>
-          <div className={styles.metricSub}>
-            {view === "portfolio"
-              ? portfolio.length
-                ? `${portfolioThreats.length} active threat${portfolioThreats.length !== 1 ? "s" : ""}`
-                : "no positions tracked"
-              : topAssets || "loading…"}
-          </div>
-        </div>
-      </div>
+      ) : (
+        <MetricRow
+          view={view}
+          activeThreatsCount={data?.threats.length ?? null}
+          categoriesCount={categories}
+          globalRisk={risk}
+          gprIndex={gpr}
+          portfolioLength={portfolio.length}
+          portfolioThreatsCount={portfolioThreats.length}
+          allAssetsLength={allAssets.length}
+          topAssets={topAssets}
+        />
+      )}
 
       {/* ─── FILTER BAR ─── */}
-      <div className={styles.filterBar}>
-        {/* View + asset filter pills */}
-        {view === "dashboard" &&
-          (["all", "stocks", "crypto", "commodities"] as AssetFilter[]).map((f) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => {
-                setAssetFilter(f);
-                setSectorFilter(null);
-                setAssetSearch("");
-              }}
-              className={`${styles.filterPill} ${assetFilter === f && !assetSearch ? styles.filterPillActive : ""}`}
-            >
-              {f.charAt(0).toUpperCase() + f.slice(1)}
-            </button>
-          ))}
-
-        <button
-          type="button"
-          onClick={() => {
-            setView((v) => (v === "portfolio" ? "dashboard" : "portfolio"));
-            setSelected(null);
-          }}
-          className={`${styles.filterPill} ${view === "portfolio" ? styles.filterPillActive : ""}`}
-        >
-          Portfolio{portfolio.length > 0 ? ` (${portfolio.length})` : ""}
-        </button>
-
-        {sectorFilter && view === "dashboard" && (
-          <span className={styles.sectorChip}>
-            {sectorFilter}
-            <button
-              type="button"
-              className={styles.sectorChipClose}
-              onClick={() => setSectorFilter(null)}
-            >
-              ×
-            </button>
-          </span>
-        )}
-
-        <span className={styles.filterSpacer} />
-
-        {/* Asset search */}
-        <div className={`${styles.filterSearch} ${assetSearch ? styles.filterSearchActive : ""}`}>
-          <span className={styles.filterSearchIcon}>⌕</span>
-          <input
-            className={styles.filterSearchInput}
-            placeholder="Search asset…"
-            value={assetSearch}
-            onChange={(e) => {
-              setAssetSearch(e.target.value);
-              if (view === "portfolio") setView("dashboard");
-            }}
-          />
-          {assetSearch && (
-            <button
-              type="button"
-              className={styles.filterSearchClear}
-              onClick={() => setAssetSearch("")}
-            >
-              ×
-            </button>
-          )}
-        </div>
-
-        <div className={styles.filterRight}>
-          <span className={styles.liveDot} />
-          <span>LIVE</span>
-          <span>{timeStr}</span>
-          <span>
-            {view === "portfolio" && portfolio.length
-              ? `${portfolioThreats.length} THREATS`
-              : `${visibleThreats.length} THREATS`}
-          </span>
-        </div>
-      </div>
+      <FilterBar
+        view={view}
+        assetFilter={assetFilter}
+        setAssetFilter={(f) => {
+          setAssetFilter(f);
+          setSectorFilter(null);
+          setAssetSearch("");
+        }}
+        sectorFilter={sectorFilter}
+        setSectorFilter={setSectorFilter}
+        assetSearch={assetSearch}
+        onAssetSearchChange={(value) => {
+          setAssetSearch(value);
+          if (view === "portfolio") setView("dashboard");
+        }}
+        onTogglePortfolioView={() => {
+          setView((v) => (v === "portfolio" ? "dashboard" : "portfolio"));
+          setSelected(null);
+        }}
+        timeStr={timeStr}
+        viewThreatCount={visibleThreats.length}
+        portfolioLength={portfolio.length}
+        portfolioThreatsCount={portfolioThreats.length}
+        notificationsEnabled={notificationsEnabled}
+        onToggleNotifications={async () => {
+          if (typeof window === "undefined" || !("Notification" in window)) return;
+          if (!notificationsEnabled) {
+            const permission = await Notification.requestPermission();
+            if (permission !== "granted") return;
+          }
+          setNotificationsEnabled((v) => !v);
+        }}
+      />
 
       {/* ─── COLUMNS ─── */}
       {!data ? (
-        <div className={styles.loadingOverlay}>Initializing intelligence feed…</div>
+        <div className={styles.columns} aria-hidden="true">
+          {/* ── LEFT: skeleton threat cards ── */}
+          <div className={styles.colLeft}>
+            <div className={styles.sectionHeader}>
+              <div className={styles.skeletonShimmer} style={{ width: "70%", height: 10, borderRadius: 6 }} />
+            </div>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className={styles.skeletonCard}>
+                <div
+                  className={styles.skeletonShimmer}
+                  style={{ width: "40%", height: 10, marginBottom: 10, borderRadius: 6 }}
+                />
+                <div
+                  className={styles.skeletonShimmer}
+                  style={{ width: "88%", height: 16, marginBottom: 12, borderRadius: 6 }}
+                />
+                <div
+                  className={styles.skeletonShimmer}
+                  style={{ width: "75%", height: 10, marginBottom: 8, borderRadius: 6 }}
+                />
+                <div
+                  className={styles.skeletonShimmer}
+                  style={{ width: "90%", height: 3, borderRadius: 999 }}
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* ── CENTER: skeleton heatmap + detail ── */}
+          <div className={styles.colCenter}>
+            <div className={styles.sectionHeader}>
+              <div className={styles.skeletonShimmer} style={{ width: "78%", height: 10, borderRadius: 6 }} />
+            </div>
+            <div className={styles.heatmapGrid}>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className={styles.heatmapCell}
+                  style={{ ["--cell-glow"]: "rgba(113,113,122,0.45)" } as CSSWithCustomProperties}
+                >
+                  <div
+                    className={styles.skeletonShimmer}
+                    style={{ width: "65%", height: 10, marginBottom: 10, borderRadius: 6 }}
+                  />
+                  <div
+                    className={styles.skeletonShimmer}
+                    style={{ width: "55%", height: 26, marginBottom: 10, borderRadius: 6 }}
+                  />
+                  <div
+                    className={styles.skeletonShimmer}
+                    style={{ width: "75%", height: 10, borderRadius: 6 }}
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className={styles.sectionHeader}>
+              <div className={styles.skeletonShimmer} style={{ width: "45%", height: 10, borderRadius: 6 }} />
+            </div>
+            <div className={styles.detailPanel}>
+              <div
+                className={styles.skeletonShimmer}
+                style={{ width: "80%", height: 18, borderRadius: 6, marginBottom: 10 }}
+              />
+              <div
+                className={styles.skeletonShimmer}
+                style={{ width: "55%", height: 12, borderRadius: 6, marginBottom: 12 }}
+              />
+              <div
+                className={styles.skeletonShimmer}
+                style={{ width: "100%", height: 70, borderRadius: 8 }}
+              />
+            </div>
+          </div>
+
+          {/* ── RIGHT: skeleton force/source blocks ── */}
+          <div className={styles.colRight}>
+            <div className={styles.rightSection}>
+              <div className={styles.sectionHeader}>
+                <div className={styles.skeletonShimmer} style={{ width: "65%", height: 10, borderRadius: 6 }} />
+              </div>
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className={styles.skeletonCard} style={{ padding: 10, marginBottom: 10 }}>
+                  <div
+                    className={styles.skeletonShimmer}
+                    style={{ width: "80%", height: 10, marginBottom: 10, borderRadius: 6 }}
+                  />
+                  <div
+                    className={styles.skeletonShimmer}
+                    style={{ width: "100%", height: 3, borderRadius: 999 }}
+                  />
+                </div>
+              ))}
+            </div>
+            <div className={styles.rightSection}>
+              <div className={styles.sectionHeader}>
+                <div className={styles.skeletonShimmer} style={{ width: "55%", height: 10, borderRadius: 6 }} />
+              </div>
+              <div className={styles.skeletonShimmer} style={{ width: "92%", height: 10, borderRadius: 6 }} />
+              <div className={styles.skeletonShimmer} style={{ width: "78%", height: 10, borderRadius: 6, marginTop: 10 }} />
+            </div>
+          </div>
+        </div>
       ) : (
         <div className={styles.columns}>
 
           {/* ── LEFT: Threat Feed ── */}
-          <div className={styles.colLeft}>
+          <ErrorBoundary label="Threat feed">
+            <div className={styles.colLeft}>
             <div className={styles.sectionHeader}>
               {view === "portfolio"
                 ? portfolio.length
@@ -622,133 +777,50 @@ export default function VigilDashboard() {
             {visibleThreats.map((t) => {
               const isSelected = selected?.id === t.id;
               return (
-                <article
+                <ThreatCard
                   key={t.id}
-                  className={[
-                    styles.threatCard,
-                    SEV_CARD[t.severity],
-                    isSelected ? SEV_SELECTED[t.severity] : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
+                  threat={t}
+                  isSelected={!!isSelected}
+                  portfolio={portfolio}
+                  nowMs={clock.getTime()}
+                  changedKind={changedThreats[t.id] ?? null}
                   onClick={() => handleThreatClick(t)}
-                >
-                  <div className={styles.badgeRow}>
-                    <span className={`${styles.badge} ${SEV_BADGE[t.severity] ?? ""}`}>
-                      {t.severity}
-                    </span>
-                    <span className={styles.badge}>{t.category}</span>
-                    <span
-                      className={
-                        t.momentum === "escalating"
-                          ? styles.momentumEsc
-                          : t.momentum === "peaking"
-                            ? styles.momentumPeak
-                            : styles.momentumFade
-                      }
-                    >
-                      {t.momentum === "escalating"
-                        ? "▲ escalating"
-                        : t.momentum === "peaking"
-                          ? "● peaking"
-                          : "▼ fading"}
-                    </span>
-                    {!t.verified && (
-                      <span className={styles.badgeUnverified}>UNVERIFIED</span>
-                    )}
-                  </div>
-
-                  <div className={styles.threatTitle}>{t.title}</div>
-
-                  <div className={styles.assetChips}>
-                    {t.assets.map((a) => (
-                      <span
-                        key={a}
-                        className={`${styles.assetChip} ${
-                          t.direction === "bearish"
-                            ? styles.assetChipBearish
-                            : t.direction === "bullish"
-                              ? styles.assetChipBullish
-                              : ""
-                        } ${portfolio.includes(a) ? styles.assetChipInPortfolio : ""}`}
-                      >
-                        <span
-                          className={
-                            t.direction === "bearish"
-                              ? styles.dirBearish
-                              : t.direction === "bullish"
-                                ? styles.dirBullish
-                                : styles.dirNeutral
-                          }
-                        >
-                          {t.direction === "bearish" ? "↓" : t.direction === "bullish" ? "↑" : "→"}
-                        </span>
-                        {a}
-                        {portfolio.includes(a) && (
-                          <span className={styles.assetChipPortfolioMark}>●</span>
-                        )}
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className={styles.probRow}>
-                    <div className={styles.probBarWrap}>
-                      <div
-                        className={`${styles.probBarFill} ${
-                          t.probSource === "Polymarket"
-                            ? styles.probBarPolymarket
-                            : styles.probBarKalshi
-                        }`}
-                        style={{ width: `${(t.probability * 100).toFixed(0)}%` }}
-                      />
-                    </div>
-                    <span className={styles.probPct}>
-                      {(t.probability * 100).toFixed(0)}%
-                    </span>
-                    <span
-                      className={`${styles.confBadge} ${
-                        t.confidence === "high"
-                          ? styles.confHigh
-                          : t.confidence === "medium"
-                            ? styles.confMed
-                            : styles.confLow
-                      }`}
-                    >
-                      {t.confidence === "high"
-                        ? "HIGH CONF"
-                        : t.confidence === "medium"
-                          ? "MED CONF"
-                          : "LOW CONF"}
-                    </span>
-                  </div>
-
-                  <div className={styles.cardFooter}>
-                    <div className={styles.footerLeft}>
-                      <span
-                        className={
-                          t.probSource === "Polymarket" ? styles.srcPolymarket : styles.srcKalshi
-                        }
-                      >
-                        {t.probSource} · {fmtVol(t.volume)}
-                      </span>
-                      <span className={probDeltaClass(t.probDelta)}>
-                        {t.probDelta > 0 ? "+" : ""}
-                        {(t.probDelta * 100).toFixed(0)}% 24h
-                      </span>
-                    </div>
-                    <span className={styles.cascadeEta}>{t.cascadeEta}</span>
-                  </div>
-                </article>
+                />
               );
             })}
-          </div>
+            </div>
+          </ErrorBoundary>
 
           {/* ── CENTER: Portfolio Panel or Heatmap + Detail ── */}
-          <div className={styles.colCenter}>
+          <ErrorBoundary label="Threat detail">
+            <div className={styles.colCenter}>
             {view === "portfolio" ? (
               /* ── Portfolio Panel ── */
               <>
-                <div className={styles.sectionHeader}>Portfolio Monitor</div>
+                <PortfolioView
+                  portfolio={portfolio}
+                  portfolioSearch={portfolioSearch}
+                  setPortfolioSearch={setPortfolioSearch}
+                  showDrop={showDrop}
+                  setShowDrop={setShowDrop}
+                  dropRef={dropRef}
+                  searchSuggestions={searchSuggestions}
+                  assetMetaBySym={assetMetaBySym}
+                  getRiskForSym={(sym) => {
+                    const meta = assetMetaBySym[sym];
+                    const sectorsForAsset =
+                      meta?.sectors?.length
+                        ? meta.sectors
+                        : STATIC_ASSET_SECTORS[sym] ?? ["Technology"];
+                    return getAssetRisk(sym, data.threats, threatsByAsset, sectorsForAsset);
+                  }}
+                  addToPortfolio={addToPortfolio}
+                  removeFromPortfolio={removeFromPortfolio}
+                  reorderPortfolio={reorderPortfolio}
+                />
+
+                <div style={{ display: "none" }}>
+                  <div className={styles.sectionHeader}>Portfolio Monitor</div>
 
                 {/* Add ticker search */}
                 <div className={styles.portfolioSearchRow} ref={dropRef}>
@@ -907,51 +979,31 @@ export default function VigilDashboard() {
                     })}
                   </div>
                 )}
-              </>
-            ) : (
-              /* ── Sector Heatmap ── */
-              <>
-                <div className={styles.sectionHeader}>Sector Risk Heatmap</div>
-                <div className={styles.heatmapGrid}>
-                  {data.sectors.map((s) => {
-                    const isActive = sectorFilter === s.name;
-                    const hex = scoreHex(s.score);
-                    return (
-                      <div
-                        key={s.name}
-                        className={styles.heatmapCell}
-                        style={
-                          isActive
-                            ? ({
-                                borderColor: `${hex}55`,
-                                background: `${hex}0d`,
-                                "--cell-glow": `${hex}18`,
-                              } as CSSWithCustomProperties)
-                            : ({
-                                "--cell-glow": `${hex}0a`,
-                              } as CSSWithCustomProperties)
-                        }
-                        onClick={() => handleSectorClick(s.name)}
-                      >
-                        <div className={styles.heatmapCellLabel}>{s.name}</div>
-                        <div className={styles.heatmapScore} style={{ color: hex }}>
-                          {s.score}
-                        </div>
-                        <div className={styles.heatmapCount}>
-                          {s.count} active threat{s.count !== 1 ? "s" : ""}
-                        </div>
-                      </div>
-                    );
-                  })}
                 </div>
               </>
+            ) : (
+              <SectorHeatmap
+                sectors={data.sectors}
+                sectorFilter={sectorFilter}
+                onSelectSector={handleSectorClick}
+              />
             )}
 
             {/* Threat detail — always visible in center column */}
-            <div className={styles.sectionHeader} style={{ marginTop: view === "portfolio" ? 14 : 0 }}>
+            <div
+              className={styles.sectionHeader}
+              style={{ marginTop: view === "portfolio" ? 14 : 0, display: "none" }}
+            >
               Threat Detail
             </div>
-            <div className={styles.detailPanel}>
+            <DetailPanel
+              view={view}
+              selected={selected}
+              portfolio={portfolio}
+              onClose={() => setSelected(null)}
+              addToPortfolio={addToPortfolio}
+            />
+            <div className={styles.detailPanel} style={{ display: "none" }}>
               {!selected ? (
                 <div className={styles.detailEmpty}>
                   Select a threat card to view details
@@ -1125,105 +1177,12 @@ export default function VigilDashboard() {
               )}
             </div>
           </div>
+          </ErrorBoundary>
 
           {/* ── RIGHT: Probabilities + Forces + Sources ── */}
-          <div className={styles.colRight}>
-
-            <div className={styles.rightSection}>
-              <div className={styles.sectionHeader}>Top Probabilities</div>
-              {[...data.threats]
-                .sort((a, b) => b.probability - a.probability)
-                .slice(0, 5)
-                .map((t) => (
-                  <div key={t.id} className={styles.probRankItem}>
-                    <div className={styles.probRankHeader}>
-                      <span className={styles.probRankTitle} title={t.title}>
-                        {truncateTitle(t.title)}
-                      </span>
-                      <span className={styles.probRankPct}>
-                        {(t.probability * 100).toFixed(0)}%
-                      </span>
-                    </div>
-                    <div className={styles.probRankBar}>
-                      <div
-                        className={`${styles.probRankBarFill} ${
-                          t.probSource === "Polymarket"
-                            ? styles.probBarPolymarket
-                            : styles.probBarKalshi
-                        }`}
-                        style={{ width: `${(t.probability * 100).toFixed(0)}%` }}
-                      />
-                    </div>
-                    <div className={styles.probRankMeta}>
-                      <span
-                        className={
-                          t.probSource === "Polymarket" ? styles.srcPolymarket : styles.srcKalshi
-                        }
-                      >
-                        {t.probSource}
-                      </span>
-                      <span className={probDeltaClass(t.probDelta)}>
-                        {t.probDelta > 0 ? "+" : ""}
-                        {(t.probDelta * 100).toFixed(0)}% 24h
-                      </span>
-                    </div>
-                  </div>
-                ))}
-            </div>
-
-            <div className={styles.rightSection}>
-              <div className={styles.sectionHeader}>Force Breakdown</div>
-              {data.forces.map((f) => (
-                <div key={f.name} className={styles.forceItem}>
-                  <div className={styles.forceHeader}>
-                    <span className={styles.forceName}>
-                      {f.name}{" "}
-                      <span className={styles.forceWeight}>({Math.round(f.weight * 100)}%)</span>
-                    </span>
-                    <span className={styles.forceScore} style={{ color: scoreHex(f.score) }}>
-                      {f.score}/100
-                    </span>
-                  </div>
-                  <div className={styles.forceBar}>
-                    <div
-                      className={styles.forceBarFill}
-                      style={{ width: `${f.score}%`, background: scoreHex(f.score) }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className={styles.rightSection}>
-              <div className={styles.sectionHeader}>Data Sources</div>
-              {Object.entries(data.sourceHealth).map(([name, s]) => {
-                const { dot, label } = getSourceDisplay(name, s.state);
-                const displayName = SOURCE_DISPLAY[name] ?? name;
-                return (
-                  <div key={name} className={styles.sourceRow}>
-                    <span className={styles.sourceName}>{displayName}</span>
-                    <div className={styles.sourceStatusGroup}>
-                      <span
-                        className={`${styles.sourceDot} ${s.state === "live" ? styles.sourceDotLive : ""}`}
-                        style={{ background: dot }}
-                      />
-                      <span className={styles.sourceStatusLabel} style={{ color: dot }}>
-                        {label}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className={styles.disclaimer}>
-              <div className={styles.disclaimerHeader}>Disclaimer</div>
-              <div className={styles.disclaimerText}>
-                Vigil displays geopolitical event severity data. It is not investment advice.
-                Scores represent event conditions, not security recommendations.
-              </div>
-            </div>
-          </div>
+          <ErrorBoundary label="Right panel">
+            <RightPanel data={data} />
+          </ErrorBoundary>
 
         </div>
       )}
