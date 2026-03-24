@@ -23,7 +23,7 @@ Make the Vigil dashboard fully usable on a mobile browser. The current 768px bre
 │   Active tab content    │  fills remaining height, scrollable
 │                         │
 ├─────────────────────────┤
-│  [⚡ Feed] [◎ Detail] [▦ Intel] │  fixed bottom, 44px
+│  [⚡ Feed] [◎ Detail] [▦ Intel] │  fixed bottom, 56px
 └─────────────────────────┘
 ```
 
@@ -31,8 +31,8 @@ Make the Vigil dashboard fully usable on a mobile browser. The current 768px bre
 | Tab | Icon | Content | Maps to |
 |---|---|---|---|
 | `feed` | ⚡ | FilterBar + threat list | colLeft |
-| `detail` | ◎ | DetailPanel | inline below colCenter |
-| `intel` | ▦ | SectorHeatmap + RightPanel | colCenter + colRight |
+| `detail` | ◎ | DetailPanel | wrapper div (no colRight class) |
+| `intel` | ▦ | SectorHeatmap + RightPanel | colCenter + colRight (inside RightPanel) |
 
 Desktop (>768px): tab bar hidden, all columns visible simultaneously as before.
 
@@ -45,49 +45,57 @@ One new state variable in `VigilDashboard.tsx`:
 const [mobileTab, setMobileTab] = useState<"feed" | "detail" | "intel">("feed")
 ```
 
-**Auto-switch to Detail on threat select:**
-Update the threat selection handler to add:
+**Auto-switch to Detail on threat select** — update the threat selection handler:
 ```typescript
-if (typeof window !== "undefined" && window.innerWidth <= 768) setMobileTab("detail");
+setSelected(threat);
+setMobileTab("detail"); // no SSR guard needed — this is a user event callback in a "use client" component
 ```
 
-**Auto-switch to Feed on detail close:**
-Update `onClose` (the `() => setSelected(null)` handler) to add:
+**Auto-switch to Feed on detail close** — update the `onClose` handler:
 ```typescript
-if (typeof window !== "undefined" && window.innerWidth <= 768) setMobileTab("feed");
+setSelected(null);
+setMobileTab("feed");
 ```
 
-`typeof window !== "undefined"` guard required for SSR safety.
+**Auto-switch to Feed when poll clears selected threat** — add a new `useEffect`:
+```typescript
+useEffect(() => {
+  if (!selected && mobileTab === "detail") setMobileTab("feed");
+}, [selected, mobileTab]);
+```
+This handles the edge case where the 15-second data poll causes `selected` to become null while the user is on the Detail tab.
 
 ---
 
 ## Column Visibility
 
-Each section gets a `.mobileHidden` class applied when it's not the active tab. `.mobileHidden` is a no-op on desktop.
+Each section gets `.mobileHidden` applied when it's not the active tab. `.mobileHidden` is a no-op on desktop (not defined outside the media query).
 
 ```tsx
 // Left column (feed)
 <div className={`${styles.colLeft} ${mobileTab !== "feed" ? styles.mobileHidden : ""}`}>
 
-// Center column (intel — heatmap only, no detail panel)
+// Center column (intel — heatmap only)
 <div className={`${styles.colCenter} ${mobileTab !== "intel" ? styles.mobileHidden : ""}`}>
 
-// DetailPanel wrapper div
+// DetailPanel: wrap in a plain unstyled div (NOT a colRight div — RightPanel owns its own colRight internally)
 <div className={mobileTab !== "detail" ? styles.mobileHidden : ""}>
   <DetailPanel ... />
 </div>
 
-// Right column (intel)
-<div className={`${styles.colRight} ${mobileTab !== "intel" ? styles.mobileHidden : ""}`}>
+// RightPanel: wrap in a plain unstyled div
+<div className={mobileTab !== "intel" ? styles.mobileHidden : ""}>
+  <RightPanel ... />
+</div>
 ```
 
-The DetailPanel wrapper is a new `<div>` added around the existing `<DetailPanel>` in the JSX. It does not affect desktop layout.
+**Important:** Do NOT add `colRight` or any grid class to the wrapper divs around `DetailPanel` or `RightPanel`. `RightPanel` renders its own `<div className={styles.colRight}>` internally — adding another `colRight` div outside would double-nest the class and break the desktop grid.
 
 ---
 
 ## Tab Bar JSX
 
-Added as a `<nav>` element directly after the `.columns` div, inside the ErrorBoundary:
+Added as a `<nav className={styles.mobileTabBar}>` directly after the `.columns` div, inside the `ErrorBoundary`:
 
 ```tsx
 <nav className={styles.mobileTabBar}>
@@ -116,12 +124,12 @@ Added as a `<nav>` element directly after the `.columns` div, inside the ErrorBo
 
 ## CSS Changes (`VigilDashboard.module.css`)
 
-### New classes (added at end of file)
+### New classes — append at end of file
 
 ```css
 /* ── Mobile tab bar ─────────────────────────────────────────────── */
 .mobileTabBar {
-  display: none; /* hidden on desktop */
+  display: none;
 }
 
 .mobileTabBtn {
@@ -167,91 +175,74 @@ Added as a `<nav>` element directly after the `.columns` div, inside the ErrorBo
   background: var(--sev-critical);
 }
 
-/* ── Mobile hidden utility ──────────────────────────────────────── */
 .mobileHidden {
-  /* no-op on desktop — overridden in 768px media query */
+  /* defined here as a no-op; overridden to display:none in 768px block */
 }
 ```
 
 ### Updates to existing `@media (max-width: 768px)` block
 
-Replace the existing `.metricRow` rule and add new rules:
+**Amend** the existing rules in place — do not add a second `@media (max-width: 768px)` block. Existing rules for `.shell`, `.tickerBar`, `.filterBar`, `.filterSpacer`, `.filterSearch`, `.filterSearchInput`, `.filterRight`, `.columns`, `.colLeft/.colCenter/.colRight`, `.heatmapGrid`, `.detailPanel`, `.portfolioSummaryRow` are already present and should be kept.
+
+Add or update the following within the existing block:
 
 ```css
-@media (max-width: 768px) {
-  /* existing shell/tickerBar/filterBar rules stay as-is */
+/* Replace existing .metricRow rule with: */
+.metricRow {
+  display: flex;
+  overflow-x: auto;
+  gap: 8px;
+  padding: 8px 10px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.metricRow::-webkit-scrollbar {
+  display: none;
+}
 
-  /* metric row → horizontal scroll strip */
-  .metricRow {
-    display: flex;
-    overflow-x: auto;
-    gap: 8px;
-    padding: 8px 10px;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-  .metricRow::-webkit-scrollbar {
-    display: none;
-  }
+/* Add new .metricCard rule */
+.metricCard {
+  min-width: 130px;
+  flex-shrink: 0;
+}
 
-  /* each metric card: fixed width, don't shrink */
-  .metricCard {
-    min-width: 130px;
-    flex-shrink: 0;
-  }
+/* Add to existing .shell rule (already has height:auto, overflow:auto) */
+/* append: */
+.shell {
+  padding-bottom: 56px; /* prevent content hiding behind fixed tab bar */
+}
 
-  /* tab bar visible on mobile */
-  .mobileTabBar {
-    display: flex;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 56px;
-    background: var(--bg-panel);
-    border-top: 1px solid var(--border);
-    z-index: 100;
-  }
+/* Add: tab bar visible on mobile */
+.mobileTabBar {
+  display: flex;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background: var(--bg-panel);
+  border-top: 1px solid var(--border);
+  z-index: 100;
+}
 
-  /* hidden utility active on mobile */
-  .mobileHidden {
-    display: none !important;
-  }
+/* Add: hidden utility */
+.mobileHidden {
+  display: none !important;
+}
 
-  /* add bottom padding to shell so content isn't behind tab bar */
-  .shell {
-    padding-bottom: 56px;
-  }
+/* Add to existing .colLeft, .colCenter, .colRight rule: */
+/* height: auto; min-height: unset; */
 
-  /* columns: flex column, no fixed heights */
-  .columns {
-    display: flex;
-    flex-direction: column;
-    overflow: visible;
-    min-height: unset;
-  }
-
-  .colLeft,
-  .colCenter,
-  .colRight {
-    border-right: none;
-    border-top: 1px solid var(--border);
-    overflow: visible;
-    padding: 10px;
-    height: auto;
-    min-height: unset;
-  }
-
-  /* hide keyboard shortcut hint on mobile */
-  .mobileHideHint {
-    display: none;
-  }
+/* Add: hide keyboard shortcut hint */
+.mobileHideHint {
+  display: none;
 }
 ```
 
-### Keyboard shortcut hint
+### Keyboard shortcut hint in FilterBar.tsx
 
-Add `.mobileHideHint` class to the hint `<span>` in `FilterBar.tsx`:
+`FilterBar.tsx` imports `styles` from `../VigilDashboard.module.css` (not its own CSS module). Add `className={styles.mobileHideHint}` to the keyboard shortcut hint `<span>`:
+
 ```tsx
 <span
   className={styles.mobileHideHint}
@@ -267,9 +258,9 @@ Add `.mobileHideHint` class to the hint `<span>` in `FilterBar.tsx`:
 
 | File | Change |
 |---|---|
-| `components/VigilDashboard.tsx` | `mobileTab` state, auto-switch logic, conditional classes, tab bar JSX, DetailPanel wrapper div |
-| `components/VigilDashboard.module.css` | New tab bar classes, updated 768px block, metric strip, mobileHidden utility |
-| `components/dashboard/FilterBar.tsx` | Add `mobileHideHint` class to shortcut hint span |
+| `components/VigilDashboard.tsx` | `mobileTab` state, auto-switch logic (select/close/poll effect), conditional classes, tab bar JSX, plain wrapper divs around DetailPanel and RightPanel |
+| `components/VigilDashboard.module.css` | New tab bar classes appended; existing 768px block amended (not duplicated) |
+| `components/dashboard/FilterBar.tsx` | Add `className={styles.mobileHideHint}` to shortcut hint span |
 
 No new files. No API or data changes.
 
@@ -283,4 +274,4 @@ npm run lint && npm run test:run && npm run build
 
 Expected: 0 lint errors, 19 tests pass, build succeeds.
 
-Manual check: resize browser to 375px width — tab bar should appear, metric row should scroll horizontally, each tab should show its content exclusively.
+Manual check: resize browser to 375px — tab bar appears, metric row scrolls horizontally, each tab shows its content exclusively, selecting a threat auto-switches to Detail tab.
