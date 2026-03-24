@@ -109,7 +109,9 @@ export async function buildDashboardSnapshot() {
     return raw.threats.map((threat) => {
       const confidence = classifyConfidenceTier(threat.volume);
       const probability = favoriteLongshotBiasCorrectedProbability(threat.probability, confidence);
-      const severity = applySingleSourceSeverityCap(threat.severity, threat.sourceCount);
+      // Severity cap is deferred until after deduplication so that merged threats
+      // (sourceCount >= 2) can correctly lift a previously-capped "critical" severity.
+      const severity = threat.severity as ReturnType<typeof applySingleSourceSeverityCap>;
 
       const baseSensitivity = sensitivityBySector[threat.sector] ?? 0.6;
       const sensitivity = baseSensitivity * sensitivityMultiplier;
@@ -218,14 +220,18 @@ export async function buildDashboardSnapshot() {
     };
   };
 
+  const applySeverityCap = (scored: ScoredThreat[]): ScoredThreat[] =>
+    scored.map((t) => ({ ...t, severity: applySingleSourceSeverityCap(t.severity, t.sourceCount) }));
+
   // Phase 3.2 (simulated regime switching): crisis mode if enough escalating threats
   // and the current global risk estimate is high.
-  let threats = dedupeThreats(scoreThreats(1, 1));
+  // Severity cap is applied after deduplication so merged threats evaluate at their final sourceCount.
+  let threats = applySeverityCap(dedupeThreats(scoreThreats(1, 1)));
   let derived = computeDerived(threats);
   const escalatingCount = threats.filter((t) => t.momentum === "escalating").length;
   const crisisMode = escalatingCount > 3 && derived.globalRisk > 70;
   if (crisisMode) {
-    threats = dedupeThreats(scoreThreats(1.15, 0.6));
+    threats = applySeverityCap(dedupeThreats(scoreThreats(1.15, 0.6)));
     derived = computeDerived(threats);
   }
 

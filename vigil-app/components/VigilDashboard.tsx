@@ -308,12 +308,35 @@ export default function VigilDashboard() {
     return [...s].sort();
   }, [data]);
 
-  // Autocomplete suggestions for portfolio add
+  // Autocomplete suggestions: known assets filtered locally, plus remote lookup for unknowns
+  const [lookupSuggestion, setLookupSuggestion] = useState<string | null>(null);
+  useEffect(() => {
+    const q = portfolioSearch.trim().toUpperCase();
+    if (!q || allKnownAssets.some((a) => a.toUpperCase().includes(q))) {
+      setLookupSuggestion(null);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/asset/lookup?symbol=${encodeURIComponent(q)}`, { cache: "no-store" });
+        const json = (await res.json()) as { ok: boolean; symbol: string };
+        if (json.ok) setLookupSuggestion(json.symbol);
+      } catch {
+        // network error — ignore
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [portfolioSearch, allKnownAssets]);
+
   const searchSuggestions = useMemo(() => {
     if (!portfolioSearch.trim()) return [] as string[];
     const q = portfolioSearch.toUpperCase();
-    return allKnownAssets.filter((a) => a.toUpperCase().includes(q)).slice(0, 6);
-  }, [allKnownAssets, portfolioSearch]);
+    const local = allKnownAssets.filter((a) => a.toUpperCase().includes(q)).slice(0, 6);
+    if (lookupSuggestion && !local.includes(lookupSuggestion)) {
+      return [...local, lookupSuggestion].slice(0, 6);
+    }
+    return local;
+  }, [allKnownAssets, portfolioSearch, lookupSuggestion]);
 
   // Threats filtered to portfolio assets
   const portfolioThreats = useMemo(() => {

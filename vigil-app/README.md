@@ -23,8 +23,10 @@ All variables are optional. The app renders with mock data when keys are absent.
 | Variable | Purpose |
 |---|---|
 | `ALPHA_VANTAGE_API_KEY` | Live stock quotes (SPY, QQQ, TSLA, NVDA) |
-| `COINGECKO_DEMO_API_KEY` | Live crypto prices (BTC, ETH) |
+| `COINGECKO_DEMO_API_KEY` | Live crypto prices (BTC, ETH) — falls back to Coinpaprika |
+| `FRED_API_KEY` | Live macro indicators: CPI, unemployment, yield curve |
 | `GEMINI_API_KEY` | Enables `/api/analyze` AI deep-dive |
+| `NEXT_PUBLIC_CONVEX_URL` | Enables auth + persistent watchlists (Convex) |
 
 ## Deploy to Vercel
 

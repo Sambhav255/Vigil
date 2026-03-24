@@ -17,14 +17,17 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://vigil.vercel.app";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
+  icons: { icon: "/favicon.svg" },
   title: "Vigil — Geopolitical Intelligence",
   description: "Real-time geopolitical threat intelligence for traders and risk teams.",
   openGraph: {
     title: "Vigil — Geopolitical Intelligence",
     description: "Track geopolitical threats, probabilities, and portfolio exposure in real time.",
     type: "website",
-    url: "https://vigil.local",
     siteName: "Vigil",
   },
   twitter: {
