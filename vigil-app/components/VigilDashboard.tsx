@@ -771,6 +771,28 @@ export default function VigilDashboard() {
 
         </div>
       )}
+
+      {/* ── MOBILE TAB BAR ── */}
+      <nav className={styles.mobileTabBar}>
+        {(["feed", "detail", "intel"] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            className={`${styles.mobileTabBtn} ${mobileTab === tab ? styles.mobileTabBtnActive : ""}`}
+            onClick={() => setMobileTab(tab)}
+          >
+            <span className={styles.mobileTabIcon}>
+              {tab === "feed" ? "⚡" : tab === "detail" ? "◎" : "▦"}
+            </span>
+            <span className={styles.mobileTabLabel}>
+              {tab === "feed" ? "Feed" : tab === "detail" ? "Detail" : "Intel"}
+            </span>
+            {tab === "detail" && selected && mobileTab !== "detail" && (
+              <span className={styles.mobileTabDot} />
+            )}
+          </button>
+        ))}
+      </nav>
     </div>
   );
 }
