@@ -673,7 +673,7 @@ export default function VigilDashboard() {
 
           {/* ── LEFT: Threat Feed ── */}
           <ErrorBoundary label="Threat feed">
-            <div className={styles.colLeft}>
+            <div className={`${styles.colLeft} ${mobileTab !== "feed" ? styles.mobileHidden : ""}`}>
             <div className={styles.sectionHeader}>
               {view === "portfolio"
                 ? portfolio.length
@@ -717,7 +717,7 @@ export default function VigilDashboard() {
 
           {/* ── CENTER: Portfolio Panel or Heatmap + Detail ── */}
           <ErrorBoundary label="Threat detail">
-            <div className={styles.colCenter}>
+            <div className={`${styles.colCenter} ${mobileTab !== "intel" ? styles.mobileHidden : ""}`}>
             {view === "portfolio" ? (
               /* ── Portfolio Panel ── */
               <>
@@ -750,20 +750,23 @@ export default function VigilDashboard() {
                 onSelectSector={handleSectorClick}
               />
             )}
-
-            <DetailPanel
-              view={view}
-              selected={selected}
-              portfolio={portfolio}
-              onClose={() => { setSelected(null); setMobileTab("feed"); }}
-              addToPortfolio={addToPortfolio}
-            />
-          </div>
+            </div>
+            <div className={mobileTab !== "detail" ? styles.mobileHidden : ""}>
+              <DetailPanel
+                view={view}
+                selected={selected}
+                portfolio={portfolio}
+                onClose={() => { setSelected(null); setMobileTab("feed"); }}
+                addToPortfolio={addToPortfolio}
+              />
+            </div>
           </ErrorBoundary>
 
           {/* ── RIGHT: Probabilities + Forces + Sources ── */}
           <ErrorBoundary label="Right panel">
-            <RightPanel data={data} />
+            <div className={mobileTab !== "intel" ? styles.mobileHidden : ""}>
+              <RightPanel data={data} />
+            </div>
           </ErrorBoundary>
 
         </div>
