@@ -1,4 +1,5 @@
 {
   "rootDirectory": "vigil-app",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "nodeVersion": "22.x"
 }
