@@ -1430,6 +1430,7 @@
     height: auto;
     min-height: 100vh;
     overflow: auto;
+    padding-bottom: 56px;
   }
 
   .tickerBar {
@@ -1437,8 +1438,20 @@
   }
 
   .metricRow {
-    grid-template-columns: 1fr;
+    display: flex;
+    overflow-x: auto;
+    gap: 8px;
     padding: 8px 10px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .metricRow::-webkit-scrollbar {
+    display: none;
+  }
+
+  .metricCard {
+    min-width: 130px;
+    flex-shrink: 0;
   }
 
   .filterBar {
@@ -1479,6 +1492,8 @@
     border-top: 1px solid var(--border);
     overflow: visible;
     padding: 10px;
+    height: auto;
+    min-height: unset;
   }
 
   .heatmapGrid {
@@ -1491,6 +1506,29 @@
 
   .portfolioSummaryRow {
     grid-template-columns: 1fr;
+  }
+
+  /* tab bar visible on mobile */
+  .mobileTabBar {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    background: var(--bg-panel);
+    border-top: 1px solid var(--border);
+    z-index: 100;
+  }
+
+  /* hidden utility active on mobile */
+  .mobileHidden {
+    display: none !important;
+  }
+
+  /* hide keyboard shortcut hint (irrelevant on touch) */
+  .mobileHideHint {
+    display: none;
   }
 }
 
