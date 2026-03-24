@@ -96,12 +96,18 @@ export default function VigilDashboard() {
   const [clientUiReady, setClientUiReady] = useState(false);
   const [portfolioSearch, setPortfolioSearch] = useState("");
   const [showDrop, setShowDrop] = useState(false);
+  const [mobileTab, setMobileTab] = useState<"feed" | "detail" | "intel">("feed");
   const dropRef = useRef<HTMLDivElement>(null);
   const [changedThreats, setChangedThreats] = useState<Record<number, "new" | "prob" | "sev">>({});
   const prevThreatByIdRef = useRef<Map<number, Threat>>(new Map());
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const notificationsEnabledRef = useRef(notificationsEnabled);
   useEffect(() => { notificationsEnabledRef.current = notificationsEnabled; }, [notificationsEnabled]);
+
+  // On mobile: if a 15s poll clears `selected` while on the Detail tab, return to Feed.
+  useEffect(() => {
+    if (!selected && mobileTab === "detail") setMobileTab("feed");
+  }, [selected, mobileTab]);
 
   // Fetch data every 15 s
   useEffect(() => {
@@ -381,7 +387,12 @@ export default function VigilDashboard() {
   }, [data, assetFilter, sectorFilter, view, portfolioThreats, assetSearch, threatsByAsset, assetMetaBySym]);
 
   const handleThreatClick = useCallback((t: Threat) => {
-    setSelected((prev) => (prev?.id === t.id ? null : t));
+    setSelected((prev) => {
+      const next = prev?.id === t.id ? null : t;
+      // auto-switch tab: Detail when selecting, Feed when deselecting (toggle)
+      setMobileTab(next ? "detail" : "feed");
+      return next;
+    });
   }, []);
 
   const handleSectorClick = useCallback((sector: string) => {
@@ -744,7 +755,7 @@ export default function VigilDashboard() {
               view={view}
               selected={selected}
               portfolio={portfolio}
-              onClose={() => setSelected(null)}
+              onClose={() => { setSelected(null); setMobileTab("feed"); }}
               addToPortfolio={addToPortfolio}
             />
           </div>
