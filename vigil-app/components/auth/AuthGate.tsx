@@ -38,7 +38,17 @@ function AuthGateInner({ children }: { children: ReactNode }) {
         <div className={styles.fullScreen}>
           <div className={styles.card}>
             <div className={styles.brand}>
-              <div className={styles.brandName}>VIGIL</div>
+              <div className={styles.brandName}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ display: "inline-block", verticalAlign: "middle", marginRight: 8, marginTop: -2 }}>
+                  <path d="M12 2L3 7v6c0 5.25 3.75 10.15 9 11.25C17.25 23.15 21 18.25 21 13V7l-9-5z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" fill="none" />
+                  <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                  <line x1="12" y1="9" x2="12" y2="5" stroke="currentColor" strokeWidth="1" opacity="0.5" />
+                  <line x1="12" y1="15" x2="12" y2="19" stroke="currentColor" strokeWidth="1" opacity="0.5" />
+                  <line x1="9" y1="12" x2="5.5" y2="12" stroke="currentColor" strokeWidth="1" opacity="0.5" />
+                  <line x1="15" y1="12" x2="18.5" y2="12" stroke="currentColor" strokeWidth="1" opacity="0.5" />
+                </svg>
+                VIGIL
+              </div>
               <div className={styles.brandSub}>Geopolitical event severity intelligence</div>
             </div>
             <SignInForm />
