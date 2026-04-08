@@ -78,7 +78,7 @@
 }
 
 .input:focus {
-  border-color: rgba(239, 68, 68, 0.35);
+  border-color: rgba(99, 102, 241, 0.35);
 }
 
 .error {
@@ -93,10 +93,10 @@
 .submitBtn {
   width: 100%;
   padding: 10px 16px;
-  background: rgba(239, 68, 68, 0.10);
-  border: 1px solid rgba(239, 68, 68, 0.20);
+  background: rgba(99, 102, 241, 0.10);
+  border: 1px solid rgba(99, 102, 241, 0.20);
   border-radius: 5px;
-  color: #f87171;
+  color: #818cf8;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -105,8 +105,8 @@
 }
 
 .submitBtn:hover:not(:disabled) {
-  background: rgba(239, 68, 68, 0.15);
-  border-color: rgba(239, 68, 68, 0.40);
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.40);
 }
 
 .submitBtn:disabled {

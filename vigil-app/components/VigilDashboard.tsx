@@ -98,6 +98,7 @@ export default function VigilDashboard() {
   const [showDrop, setShowDrop] = useState(false);
   const [mobileTab, setMobileTab] = useState<"feed" | "detail" | "intel">("feed");
   const dropRef = useRef<HTMLDivElement>(null);
+  const [fetchErrors, setFetchErrors] = useState(0);
   const [changedThreats, setChangedThreats] = useState<Record<number, "new" | "prob" | "sev">>({});
   const prevThreatByIdRef = useRef<Map<number, Threat>>(new Map());
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -155,9 +156,10 @@ export default function VigilDashboard() {
           prevThreatByIdRef.current = next;
           setChangedThreats(delta);
           setData(json);
+          setFetchErrors(0);
         }
       } catch {
-        // fail silently — will retry on next interval
+        if (alive) setFetchErrors((n) => n + 1);
       }
     };
     void load();
@@ -490,6 +492,14 @@ export default function VigilDashboard() {
   return (
     <div className={styles.shell}>
 
+      {/* ─── CONNECTION ERROR BANNER ─── */}
+      {fetchErrors >= 3 && (
+        <div className={styles.connectionError}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Connection interrupted — retrying...
+        </div>
+      )}
+
       {/* ─── TICKER BAR ─── */}
       <TickerBar tickerSet={tickerSet} />
 
@@ -571,20 +581,24 @@ export default function VigilDashboard() {
             <div className={styles.sectionHeader}>
               <div className={styles.skeletonShimmer} style={{ width: "70%", height: 10, borderRadius: 6 }} />
             </div>
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className={styles.skeletonCard}>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className={styles.skeletonCard} style={{ marginBottom: 8 }}>
+                {/* badge row */}
+                <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+                  <div className={styles.skeletonShimmer} style={{ width: 50, height: 16, borderRadius: 3 }} />
+                  <div className={styles.skeletonShimmer} style={{ width: 65, height: 16, borderRadius: 3 }} />
+                </div>
+                {/* title */}
                 <div
                   className={styles.skeletonShimmer}
-                  style={{ width: "40%", height: 10, marginBottom: 10, borderRadius: 6 }}
+                  style={{ width: "88%", height: 14, marginBottom: 10, borderRadius: 6 }}
                 />
-                <div
-                  className={styles.skeletonShimmer}
-                  style={{ width: "88%", height: 16, marginBottom: 12, borderRadius: 6 }}
-                />
-                <div
-                  className={styles.skeletonShimmer}
-                  style={{ width: "75%", height: 10, marginBottom: 8, borderRadius: 6 }}
-                />
+                {/* asset chips */}
+                <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
+                  <div className={styles.skeletonShimmer} style={{ width: 40, height: 14, borderRadius: 3 }} />
+                  <div className={styles.skeletonShimmer} style={{ width: 36, height: 14, borderRadius: 3 }} />
+                </div>
+                {/* probability bar */}
                 <div
                   className={styles.skeletonShimmer}
                   style={{ width: "90%", height: 3, borderRadius: 999 }}
@@ -640,31 +654,49 @@ export default function VigilDashboard() {
             </div>
           </div>
 
-          {/* ── RIGHT: skeleton force/source blocks ── */}
+          {/* ── RIGHT: skeleton probability + force + source blocks ── */}
           <div className={styles.colRight}>
+            {/* Probability rankings */}
             <div className={styles.rightSection}>
               <div className={styles.sectionHeader}>
                 <div className={styles.skeletonShimmer} style={{ width: "65%", height: 10, borderRadius: 6 }} />
               </div>
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className={styles.skeletonCard} style={{ padding: 10, marginBottom: 10 }}>
-                  <div
-                    className={styles.skeletonShimmer}
-                    style={{ width: "80%", height: 10, marginBottom: 10, borderRadius: 6 }}
-                  />
-                  <div
-                    className={styles.skeletonShimmer}
-                    style={{ width: "100%", height: 3, borderRadius: 999 }}
-                  />
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} style={{ marginBottom: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                    <div className={styles.skeletonShimmer} style={{ width: "60%", height: 10, borderRadius: 6 }} />
+                    <div className={styles.skeletonShimmer} style={{ width: 30, height: 10, borderRadius: 6 }} />
+                  </div>
+                  <div className={styles.skeletonShimmer} style={{ width: "100%", height: 3, borderRadius: 999 }} />
                 </div>
               ))}
             </div>
+            {/* Force breakdown */}
             <div className={styles.rightSection}>
               <div className={styles.sectionHeader}>
                 <div className={styles.skeletonShimmer} style={{ width: "55%", height: 10, borderRadius: 6 }} />
               </div>
-              <div className={styles.skeletonShimmer} style={{ width: "92%", height: 10, borderRadius: 6 }} />
-              <div className={styles.skeletonShimmer} style={{ width: "78%", height: 10, borderRadius: 6, marginTop: 10 }} />
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} style={{ marginBottom: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                    <div className={styles.skeletonShimmer} style={{ width: "50%", height: 10, borderRadius: 6 }} />
+                    <div className={styles.skeletonShimmer} style={{ width: 24, height: 10, borderRadius: 6 }} />
+                  </div>
+                  <div className={styles.skeletonShimmer} style={{ width: "100%", height: 2, borderRadius: 999 }} />
+                </div>
+              ))}
+            </div>
+            {/* Data sources */}
+            <div className={styles.rightSection}>
+              <div className={styles.sectionHeader}>
+                <div className={styles.skeletonShimmer} style={{ width: "50%", height: 10, borderRadius: 6 }} />
+              </div>
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0" }}>
+                  <div className={styles.skeletonShimmer} style={{ width: "45%", height: 10, borderRadius: 6 }} />
+                  <div className={styles.skeletonShimmer} style={{ width: 40, height: 10, borderRadius: 6 }} />
+                </div>
+              ))}
             </div>
           </div>
         </div>
