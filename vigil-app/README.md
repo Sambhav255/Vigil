@@ -1,6 +1,6 @@
 # Vigil
 
-A geopolitical threat intelligence dashboard that aggregates prediction markets, global news, macroeconomic indicators, and natural disaster feeds into a real-time risk scoring system. Built for analysts who want a Bloomberg Terminal-style view of global tail-risk events.
+A geopolitical threat intelligence dashboard that aggregates prediction markets, global news volume, macro indicators, and natural-event feeds into a real-time risk scoring UI—built for a Bloomberg Terminal–style read on tail-risk.
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-black) ![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -8,103 +8,101 @@ A geopolitical threat intelligence dashboard that aggregates prediction markets,
 
 ## What it does
 
-Vigil pulls live data from multiple sources, scores every threat through a three-phase algorithm, and renders a dark-theme dashboard with three panels:
+Vigil pulls live data when API keys are present, runs every threat through a multi-phase scorer, and renders a dark, information-dense dashboard:
 
-- **Feed** — filterable, sortable threat list with severity, probability, and composite score
-- **Detail** — per-threat deep-dive: probability sparkline, affected assets, cascade ETA, AI analysis
-- **Intel** — sector heatmap, macro force indicators, source health, and probability rankings
+| Area | Contents |
+|------|----------|
+| **Left — Feed** | Filterable threat list: severity, probability, composite score, sources, and deltas |
+| **Center** | **Sector risk heatmap** (top) and **Threat detail** (below)—mechanism, assets, sparklines, cascade ETA, watch / analyze actions |
+| **Right — Intel rail** | Top probabilities (click to focus a threat), force breakdown, data source health, signal hit rate, disclaimer |
 
-On mobile, a fixed bottom tab bar (Feed / Detail / Intel) replaces the three-column layout.
+On **mobile**, a bottom tab bar switches **Feed** / **Detail** / **Intel** so one pane fills the screen at a time (heatmap vs. detail vs. feed).
 
 ---
 
 ## Data sources
 
-| Source | What it provides |
-|---|---|
-| Polymarket + Kalshi | Prediction market probabilities for geopolitical events |
-| GDELT | Global news event database — corroborates and deduplicates threats |
-| FRED | Macro indicators: CPI, unemployment, yield curve spread |
-| USGS | Real-time significant earthquake feed |
-| NASA EONET | Natural event feed: wildfires, cyclones, floods |
-| Alpha Vantage | Live equity quotes (SPY, QQQ, TSLA, NVDA, …) |
-| CoinGecko / Coinpaprika | Live crypto prices (BTC, ETH) with fallback |
+| Source | Role |
+|--------|------|
+| **Polymarket** & **Kalshi** | Prediction-market probabilities for geopolitical and macro-style events |
+| **GDELT** | News volume by category—feeds confidence / corroboration signals |
+| **FRED** | Macro series (CPI, unemployment, yields, etc.) |
+| **USGS** | Significant earthquakes |
+| **NASA EONET** | Wildfires, storms, floods, and other natural events |
+| **Alpha Vantage** | Equity quotes (e.g. SPY, QQQ, NVDA) |
+| **CoinGecko** / **Coinpaprika** | Crypto prices with fallback if a key is missing |
 
-All sources are optional. The app renders with seed/mock data when API keys are absent.
+All sources are **optional**. Without keys, the app still runs using seed / mock data so layouts and scoring can be exercised locally.
 
 ---
 
 ## Scoring pipeline
 
-Threats go through three phases before display:
+1. **Phase 1 — Confidence** — Tier from market volume; **severity** is capped for single-source `critical` threats *after* deduplication, using the merged `sourceCount` so corroborated threats are scored fairly.
 
-1. **Phase 1 — Confidence classification** Assigns `low / medium / high` confidence based on prediction market volume. Caps severity to `high` for single-source threats (applied after deduplication so merged threats are evaluated at their final source count).
+2. **Phase 2 — Bias correction** — Favorite–longshot adjustment on implied probabilities.
 
-2. **Phase 2 — Bias correction** Applies favorite-longshot correction: low-probability events are boosted, high-probability events are discounted.
+3. **Phase 3 — Decay** — Exponential decay with asymmetric half-lives (e.g. bearish vs bullish). Composite score blends sensitivity, GPR context, probability, and decay.
 
-3. **Phase 3 — Temporal decay** Exponential decay with regime-switching half-lives: bearish events decay at 21 h, bullish at 14 h. Composite score = `probability × severity_weight × confidence_factor × decay`.
-
-Jaccard-similarity deduplication merges near-duplicate threats before scoring finalizes.
+Near-duplicate titles are merged with Jaccard-style similarity before final scores are shown.
 
 ---
 
 ## Tech stack
 
-- **Next.js 16** (App Router, `"use client"` components)
-- **React 18** with strict TypeScript
-- **CSS Modules** + Tailwind CSS 4 — dark theme, Bloomberg Terminal aesthetic
+- **Next.js 16** (App Router, React Server Components where applicable + client dashboard)
+- **TypeScript** (strict) · **CSS Modules** + **Tailwind CSS 4**
 - **Vitest** for unit tests
-- **Convex** (optional) — auth, persistent watchlists, alert log
-- **Gemini API** (optional) — AI threat deep-dive via `/api/analyze`
+- **Convex** (optional) — auth, watchlists, alert history when `NEXT_PUBLIC_CONVEX_URL` is set
+- **Groq** (optional) — LLM-backed threat **Analyze** via `POST /api/analyze` when `GROQ_API_KEY` is set
 
 ---
 
 ## Local setup
 
-**Requirements:** Node.js 20.x or 22.x. Node 25+ breaks the Next.js server bundle.
+**Requirements:** Node.js **20.x** or **22.x** (see `engines` and `scripts/check-node.mjs`). **Node 25+** is not supported for this Next.js version.
 
 ```bash
-# If using nvm (reads .nvmrc automatically):
-nvm install && nvm use
-
-# Install and run
-cp .env.example .env.local   # all keys are optional
+cd vigil-app
+cp .env.example .env.local   # optional — all keys can be empty for mock data
 npm install
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
-> **OneDrive / iCloud users:** If installs or `next dev` hit timeouts, copy `vigil-app/` to a local path (e.g. `/tmp/vigil-app`) and run commands there.
+> **OneDrive / iCloud:** If installs or `next dev` time out or corrupt files, clone or copy `vigil-app/` to a non-synced path (e.g. `C:\dev\vigil-app`) and run commands there.
 
 ---
 
 ## Environment variables
 
-All variables are optional. The app renders with mock data when keys are absent.
+Everything below is optional unless you want live data or AI analysis.
 
 | Variable | Purpose | Free tier? |
-|---|---|---|
+|----------|---------|------------|
 | `ALPHA_VANTAGE_API_KEY` | Live equity quotes | Yes |
-| `COINGECKO_DEMO_API_KEY` | Live crypto prices — falls back to Coinpaprika | Yes |
-| `FRED_API_KEY` | Live macro indicators (CPI, unemployment, yields) | Yes |
-| `GROQ_API_KEY` | Enables `/api/analyze` AI deep-dive ([Groq console](https://console.groq.com/keys)) | Yes |
-| `GROQ_MODEL` | Optional model override (default: `openai/gpt-oss-120b` in code) | — |
-| `NEXT_PUBLIC_CONVEX_URL` | Enables auth + persistent watchlists | Yes (free tier) |
-| `NEXT_PUBLIC_SITE_URL` | Base URL for OG metadata | — |
+| `COINGECKO_DEMO_API_KEY` | Crypto quotes — falls back to Coinpaprika | Yes |
+| `FRED_API_KEY` | Macro indicators | Yes |
+| `GROQ_API_KEY` | Enables **Analyze** on a threat (`/api/analyze`) — [Groq console](https://console.groq.com/keys) | Yes |
+| `GROQ_MODEL` | Override chat model (default is set in `app/api/analyze/route.ts`) | — |
+| `NEXT_PUBLIC_CONVEX_URL` | Convex deployment URL for auth / persistence | Yes (free tier) |
+| `NEXT_PUBLIC_SITE_URL` | Canonical site URL for Open Graph metadata | — |
+
+Copy from `.env.example` and never commit `.env.local`.
 
 ---
 
 ## Deploy to Vercel
 
-1. Import the repo. Set **Root Directory** to `vigil-app` in the Vercel project settings.
-2. Set **Node.js version** to **22.x**.
-3. Add any environment variables from `.env.example`.
+1. Import the repo and set **Root Directory** to **`vigil-app`** (or rely on root `vercel.json` if present).
+2. Set **Node.js** to **22.x** in Project → Settings.
+3. Add env vars from `.env.example` as needed.
 4. Deploy.
 
-For Convex auth: run `npx convex dev` locally first to provision the backend, then copy `NEXT_PUBLIC_CONVEX_URL` into Vercel's environment variables.
+**Convex:** From `vigil-app/`, run `npx convex dev` once to link a project, then add `NEXT_PUBLIC_CONVEX_URL` in Vercel.
 
-**CI:** `.github/workflows/ci.yml` runs lint, tests, and a production build on every push to `main`.
+**CI:** `.github/workflows/ci.yml` runs lint, tests, and production build on pushes to `main`.
 
 ---
 
@@ -114,14 +112,21 @@ For Convex auth: run `npx convex dev` locally first to provision the backend, th
 npm run dev        # dev server → http://localhost:3000
 npm run build      # production build
 npm run lint       # ESLint
-npm run test:run   # Vitest (single run / CI)
-npm test           # Vitest (watch mode)
+npm run test:run   # Vitest (CI / single run)
+npm test           # Vitest watch mode
 ```
 
-Run a single test file:
+Single file:
+
 ```bash
 npx vitest run tests/scoring.test.ts
 ```
+
+---
+
+## Keyboard shortcuts (desktop)
+
+When focus is not in an input: **`j` / `k`** move selection, **`Enter`** selects first threat, **`Esc`** clears selection and search, **`/`** focuses search, **`p`** toggles portfolio view, **`1`–`4`** asset-class filters.
 
 ---
 
@@ -131,13 +136,13 @@ npx vitest run tests/scoring.test.ts
 vigil-app/
 ├── app/
 │   ├── api/
-│   │   ├── dashboard/     # main polling endpoint (GET)
-│   │   ├── analyze/       # Gemini AI deep-dive (POST)
+│   │   ├── dashboard/     # GET — aggregated snapshot for the UI
+│   │   ├── analyze/       # POST — Groq-backed threat analysis
 │   │   └── …
 │   └── layout.tsx
 ├── components/
-│   ├── VigilDashboard.tsx          # root client component
-│   ├── VigilDashboard.module.css   # all dashboard styles
+│   ├── VigilDashboard.tsx           # main shell + column layout
+│   ├── VigilDashboard.module.css
 │   └── dashboard/
 │       ├── ThreatCard.tsx
 │       ├── DetailPanel.tsx
@@ -146,9 +151,9 @@ vigil-app/
 │       ├── RightPanel.tsx
 │       └── …
 ├── lib/
-│   ├── pipeline.ts        # main orchestrator
-│   ├── data/              # API clients (FRED, USGS, EONET, sources)
-│   ├── scoring/           # phase1, phase2, phase3 algorithms
+│   ├── pipeline.ts        # scoring + dedupe orchestration
+│   ├── data/              # source clients
+│   ├── scoring/           # phases 1–3
 │   └── types.ts
-└── tests/                 # Vitest unit tests
+└── tests/                 # Vitest
 ```

@@ -9,7 +9,7 @@ Vigil aggregates prediction market data, global news events, macroeconomic indic
 ## Structure
 
 ```
-vigil-app/    — Next.js 16 app (production)
+vigil-app/    — Next.js 16 app (production) — full README: vigil-app/README.md
 docs/         — API research, product requirements
 ```
 
@@ -38,7 +38,7 @@ Open [http://localhost:3000](http://localhost:3000).
 | CoinGecko + Coinpaprika | Crypto prices | Optional key |
 | Alpha Vantage | Stock quotes | Optional key |
 | FRED | Macro indicators | Optional key |
-| Gemini AI | Threat analysis | Optional key |
+| Groq | AI threat analysis (`/api/analyze`) | Optional key |
 
 ## Deploy
 
