@@ -128,14 +128,16 @@ export async function fetchPolymarketThreatUpdates(baseThreats: Threat[]): Promi
   updates: ThreatUpdate[];
 }> {
   const url = "https://gamma-api.polymarket.com/events?limit=5";
-  const json = await safeFetchJson<Record<string, unknown>>(url);
+  const json = await safeFetchJson<unknown[]>(url);
   if (!json || !Array.isArray(json)) return { ok: false, updates: [] };
 
   const threatsById = new Map<number, Threat>(baseThreats.map((t) => [t.id, t]));
 
   const updatesById = new Map<number, ThreatUpdate>();
 
-  for (const ev of json) {
+  for (const raw of json) {
+    if (!raw || typeof raw !== "object") continue;
+    const ev = raw as Record<string, unknown>;
     const title = extractEventTitle(ev);
     if (!title) continue;
 

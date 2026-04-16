@@ -103,7 +103,7 @@ export async function fetchKalshiThreatUpdates(baseThreats: Threat[]): Promise<{
   updates: ThreatUpdate[];
 }> {
   const url = "https://api.elections.kalshi.com/trade-api/v2/markets";
-  const json = await safeFetchJson<Record<string, unknown>>(url);
+  const json = await safeFetchJson<{ markets?: unknown[] }>(url);
   const markets = json?.markets;
   if (!markets || !Array.isArray(markets)) return { ok: false, updates: [] };
 
@@ -111,13 +111,15 @@ export async function fetchKalshiThreatUpdates(baseThreats: Threat[]): Promise<{
   const updatesById = new Map<number, ThreatUpdate>();
 
   for (const market of markets) {
-    const title = extractTitle(market);
+    if (!market || typeof market !== "object") continue;
+    const m = market as Record<string, unknown>;
+    const title = extractTitle(m);
     if (!title) continue;
     if (!isMacroLike(title)) continue;
 
-    const prob = extractProbability(market);
+    const prob = extractProbability(m);
     if (prob == null) continue;
-    const volume = extractVolume(market) ?? 0;
+    const volume = extractVolume(m) ?? 0;
 
     let best: { id: number; score: number } | null = null;
     for (const t of baseThreats) {

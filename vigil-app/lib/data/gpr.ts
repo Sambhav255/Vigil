@@ -30,8 +30,10 @@ export async function fetchGprIndex(): Promise<number> {
   const now = Date.now();
   if (cache && now - cache.fetchedAt < CACHE_MS) return cache.value;
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 4_000);
   try {
-    const res = await fetch(GPR_URL, { cache: "no-store" });
+    const res = await fetch(GPR_URL, { cache: "no-store", signal: controller.signal });
     if (!res.ok) return FALLBACK_VALUE;
     const text = await res.text();
     const value = parseLatestValue(text);
@@ -39,8 +41,10 @@ export async function fetchGprIndex(): Promise<number> {
     cache = { fetchedAt: now, value: out };
     return out;
   } catch {
-    logSourceFailure("gpr", "fetchGprIndex failed");
+    logSourceFailure("gpr", "fetchGprIndex failed or timed out");
     return FALLBACK_VALUE;
+  } finally {
+    clearTimeout(timer);
   }
 }
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import styles from "../VigilDashboard.module.css";
-import type { Snapshot } from "./dashboardTypes";
+import type { Snapshot, Threat } from "./dashboardTypes";
 import { SOURCE_DISPLAY, scoreHex, truncateTitle } from "./shared";
 
 function probDeltaClass(delta: number) {
@@ -13,14 +13,20 @@ function probDeltaClass(delta: number) {
 
 function getSourceDisplay(name: string, state: string) {
   if (name === "gprIndex") return { dot: "#b07028", label: "daily" };
-  if (name === "geminiFlash") return { dot: "#4a4845", label: "standby" };
+  if (name === "geminiFlash") return { dot: "#4a4845", label: "on-demand" };
   if (state === "live") return { dot: "#25784a", label: "live" };
   if (state === "stale") return { dot: "#b07028", label: "stale" };
   if (state === "delayed") return { dot: "#b07028", label: "delayed" };
   return { dot: "#c42626", label: "offline" };
 }
 
-export default function RightPanel({ data }: { data: Snapshot }) {
+export default function RightPanel({
+  data,
+  onSelectThreat,
+}: {
+  data: Snapshot;
+  onSelectThreat?: (t: Threat) => void;
+}) {
   const [hitRate, setHitRate] = useState<{ hitRate: number; sampleSize: number } | null>(null);
 
   useEffect(() => {
@@ -48,7 +54,12 @@ export default function RightPanel({ data }: { data: Snapshot }) {
           .sort((a, b) => b.probability - a.probability)
           .slice(0, 5)
           .map((t) => (
-            <div key={t.id} className={styles.probRankItem}>
+            <div
+              key={t.id}
+              className={styles.probRankItem}
+              style={{ cursor: onSelectThreat ? "pointer" : undefined }}
+              onClick={() => onSelectThreat?.(t)}
+            >
               <div className={styles.probRankHeader}>
                 <span className={styles.probRankTitle} title={t.title}>
                   {truncateTitle(t.title)}

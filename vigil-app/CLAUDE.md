@@ -70,7 +70,7 @@ Browser (components/VigilDashboard.tsx)
 | Route | Method | Notes |
 |---|---|---|
 | `/api/dashboard` | GET | Full snapshot; main polling endpoint |
-| `/api/analyze` | POST | `{threatTitle}` → AI deep-dive; requires `GEMINI_API_KEY` |
+| `/api/analyze` | POST | `{threatTitle}` → AI deep-dive via Groq; requires `GROQ_API_KEY` |
 | `/api/backtest` | POST | Hit-rate computation from supplied records |
 
 ### Environment Variables
@@ -82,7 +82,8 @@ All optional — app renders with mock/seed data if absent:
 | `ALPHA_VANTAGE_API_KEY` | Live stock quotes |
 | `COINGECKO_DEMO_API_KEY` | Live crypto prices (Coinpaprika used as free fallback) |
 | `FRED_API_KEY` | Live macro force scoring (CPI, unemployment, yields) |
-| `GEMINI_API_KEY` | Enables `/api/analyze` AI deep-dive |
+| `GROQ_API_KEY` | Enables `/api/analyze` (create key at [Groq console](https://console.groq.com/keys)) |
+| `GROQ_MODEL` | Optional. Default `llama-3.3-70b-versatile` |
 
 ### Styling
 

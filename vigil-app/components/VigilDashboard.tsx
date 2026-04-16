@@ -57,7 +57,14 @@ function getAssetRisk(
   // Direct threats weight more; related (sector) threats contribute at 50%
   const threats = [...direct, ...related];
   if (!threats.length) {
-    return { score: 0, direction: "neutral" as const, count: 0, relatedCount: 0, topThreat: null as string | null, hasRelated: false };
+    return {
+      score: 0,
+      direction: "neutral" as const,
+      count: 0,
+      relatedCount: 0,
+      topThreat: null as string | null,
+      hasRelated: false,
+    };
   }
   const scores = threats.map((t) =>
     t.compositeScore ??
@@ -68,7 +75,12 @@ function getAssetRisk(
   const bullish = direct.filter((t) => t.direction === "bullish").length;
   const direction =
     bearish > bullish ? ("bearish" as const) : bullish > bearish ? ("bullish" as const) : ("neutral" as const);
-  const sorted = [...direct, ...related].sort((a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0));
+  const SEVERITY_RANK = { critical: 4, high: 3, medium: 2, low: 1 } as const;
+  const sorted = [...direct, ...related].sort((a, b) => {
+    const sevDiff = (SEVERITY_RANK[b.severity] ?? 0) - (SEVERITY_RANK[a.severity] ?? 0);
+    if (sevDiff !== 0) return sevDiff;
+    return (b.compositeScore ?? 0) - (a.compositeScore ?? 0);
+  });
   return {
     score,
     direction,
@@ -102,7 +114,11 @@ export default function VigilDashboard() {
   const prevThreatByIdRef = useRef<Map<number, Threat>>(new Map());
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const notificationsEnabledRef = useRef(notificationsEnabled);
-  useEffect(() => { notificationsEnabledRef.current = notificationsEnabled; }, [notificationsEnabled]);
+  const [isDataStale, setIsDataStale] = useState(true);
+
+  useEffect(() => {
+    notificationsEnabledRef.current = notificationsEnabled;
+  }, [notificationsEnabled]);
 
   // On mobile: if a 15s poll clears `selected` while on the Detail tab, return to Feed.
   useEffect(() => {
@@ -113,6 +129,7 @@ export default function VigilDashboard() {
   useEffect(() => {
     let alive = true;
     const load = async () => {
+      setIsDataStale(true);
       try {
         const res = await fetch("/api/dashboard", { cache: "no-store" });
         const json = (await res.json()) as Snapshot;
@@ -155,6 +172,7 @@ export default function VigilDashboard() {
           prevThreatByIdRef.current = next;
           setChangedThreats(delta);
           setData(json);
+          setIsDataStale(false);
         }
       } catch {
         // fail silently — will retry on next interval
@@ -227,9 +245,13 @@ export default function VigilDashboard() {
           if (!alive) return;
 
           if (json.ok && Array.isArray(json.sectors)) {
-            setAssetMetaBySym((prev) => ({ ...prev, [sym]: { name: json.name ?? null, sectors: json.sectors ?? [] } }));
+            const sectors = json.sectors;
+            setAssetMetaBySym((prev) => ({ ...prev, [sym]: { name: json.name ?? null, sectors } }));
           } else {
-            setAssetMetaBySym((prev) => ({ ...prev, [sym]: { name: json.name ?? null, sectors: STATIC_ASSET_SECTORS[sym] ?? [] } }));
+            setAssetMetaBySym((prev) => ({
+              ...prev,
+              [sym]: { name: json.name ?? null, sectors: STATIC_ASSET_SECTORS[sym] ?? [] },
+            }));
           }
         } catch {
           // ignore network errors; we will keep the card but with whatever static fallback we have
@@ -395,6 +417,11 @@ export default function VigilDashboard() {
     });
   }, []);
 
+  const handleRightPanelThreatSelect = useCallback((t: Threat) => {
+    setSelected(t);
+    setMobileTab("detail");
+  }, []);
+
   const handleSectorClick = useCallback((sector: string) => {
     setSectorFilter((prev) => (prev === sector ? null : sector));
   }, []);
@@ -468,6 +495,14 @@ export default function VigilDashboard() {
     () => (data ? new Set(data.threats.map((t) => t.category)).size : 0),
     [data]
   );
+  const criticalThreatCount = useMemo(
+    () => data?.threats.filter((t) => t.severity === "critical").length ?? 0,
+    [data]
+  );
+  const highThreatCount = useMemo(
+    () => data?.threats.filter((t) => t.severity === "high").length ?? 0,
+    [data]
+  );
 
   // Ticker items: 3 copies for seamless loop
   const tickerItems = data?.tickers ?? [];
@@ -525,6 +560,8 @@ export default function VigilDashboard() {
           portfolioThreatsCount={portfolioThreats.length}
           allAssetsLength={allAssets.length}
           topAssets={topAssets}
+          criticalThreatCount={criticalThreatCount}
+          highThreatCount={highThreatCount}
         />
       )}
 
@@ -561,6 +598,7 @@ export default function VigilDashboard() {
           }
           setNotificationsEnabled((v) => !v);
         }}
+        isStale={isDataStale}
       />
 
       {/* ─── COLUMNS ─── */}
@@ -741,6 +779,17 @@ export default function VigilDashboard() {
                   addToPortfolio={addToPortfolio}
                   removeFromPortfolio={removeFromPortfolio}
                   reorderPortfolio={reorderPortfolio}
+                  onCardClick={(sym) => {
+                    const SRANK = { critical: 4, high: 3, medium: 2, low: 1 } as const;
+                    const list = threatsByAsset[sym.toUpperCase()] ?? [];
+                    const topThreat = [...list].sort(
+                      (a, b) => (SRANK[b.severity] ?? 0) - (SRANK[a.severity] ?? 0)
+                    )[0];
+                    if (topThreat) {
+                      setSelected(topThreat);
+                      setView("dashboard");
+                    }
+                  }}
                 />
               </>
             ) : (
@@ -753,10 +802,14 @@ export default function VigilDashboard() {
             </div>
             <div className={mobileTab !== "detail" ? styles.mobileHidden : ""}>
               <DetailPanel
+                key={selected?.id ?? "none"}
                 view={view}
                 selected={selected}
                 portfolio={portfolio}
-                onClose={() => { setSelected(null); setMobileTab("feed"); }}
+                onClose={() => {
+                  setSelected(null);
+                  setMobileTab("feed");
+                }}
                 addToPortfolio={addToPortfolio}
               />
             </div>
@@ -765,7 +818,7 @@ export default function VigilDashboard() {
           {/* ── RIGHT: Probabilities + Forces + Sources ── */}
           <ErrorBoundary label="Right panel">
             <div className={mobileTab !== "intel" ? styles.mobileHidden : ""}>
-              <RightPanel data={data} />
+              <RightPanel data={data} onSelectThreat={handleRightPanelThreatSelect} />
             </div>
           </ErrorBoundary>
 

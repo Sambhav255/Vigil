@@ -52,7 +52,10 @@ export function computeGlobalRiskIndex(
     sentiment * CATEGORY_WEIGHTS.sentiment +
     supplyChain * CATEGORY_WEIGHTS.supplyChain +
     climate * CATEGORY_WEIGHTS.climate;
-  return 100 / (1 + Math.exp(-(weighted - 50) / 10));
+
+  // Rescale so typical force scores map to a meaningful 1–95 index (sigmoid sat near zero for common inputs).
+  const raw = Math.min(95, weighted * 1.4);
+  return Math.max(1, Math.round(raw));
 }
 
 export function computeCompositeThreatScore(sensitivity: number, probability: number, gprAdjustmentFactor: number) {

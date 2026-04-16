@@ -1,4 +1,6 @@
 import { buildDashboardSnapshot } from "@/lib/pipeline";
+import { FORCES, SECTORS, THREATS, TICKERS } from "@/lib/config/constants";
+import type { SourceHealth } from "@/lib/types";
 import { createHash } from "node:crypto";
 
 export const dynamic = "force-dynamic";
@@ -6,14 +8,46 @@ export const dynamic = "force-dynamic";
 // ── In-memory stale-while-revalidate cache ───────────────────────────────────
 // Requests always get the cached value instantly (<1ms).
 // A background refresh runs whenever the cache is older than TTL_MS.
-const TTL_MS = 30_000; // 30 s — matches the pipeline's own SOURCE_STALE_AFTER_MS
+const TTL_MS = 60_000; // 60s fresh window — external APIs can be slow
+
+type Snapshot = Awaited<ReturnType<typeof buildDashboardSnapshot>>;
 
 type CacheEntry = {
-  snapshot: Awaited<ReturnType<typeof buildDashboardSnapshot>>;
+  snapshot: Snapshot;
   fetchedAt: number;
 };
 
-let cache: CacheEntry | null = null;
+const SEED_SOURCE_KEYS = [
+  "polymarket",
+  "kalshi",
+  "gdelt",
+  "alphaVantage",
+  "coinGecko",
+  "usgs",
+  "nasaEonet",
+  "fred",
+  "gprIndex",
+  "geminiFlash",
+] as const;
+
+function buildSeedSnapshot(at: number): Snapshot {
+  const loadingHealth: SourceHealth = { state: "stale", label: "loading", lastUpdatedMs: at };
+  return {
+    globalRisk: 48,
+    gprIndex: 120,
+    tickers: TICKERS.map((t) => ({ ...t })),
+    threats: THREATS.map((t) => ({ ...t, compositeScore: 40 })),
+    sectors: SECTORS.map((s) => ({ ...s })),
+    forces: FORCES.map((f) => ({ ...f })),
+    sourceHealth: Object.fromEntries(SEED_SOURCE_KEYS.map((k) => [k, { ...loadingHealth }])) as Snapshot["sourceHealth"],
+  };
+}
+
+// Pre-populate with seed so the first request never blocks on a cold pipeline fetch
+let cache: CacheEntry | null = {
+  snapshot: buildSeedSnapshot(Date.now()),
+  fetchedAt: Date.now() - TTL_MS - 1,
+};
 let refreshing = false;
 
 async function refreshCache(): Promise<void> {
@@ -35,10 +69,8 @@ export async function GET(request: Request) {
   const empty = cache === null;
 
   if (empty) {
-    // Cold start — must wait for the first fetch
     await refreshCache();
   } else if (stale) {
-    // Serve stale immediately, refresh in background
     void refreshCache();
   }
 

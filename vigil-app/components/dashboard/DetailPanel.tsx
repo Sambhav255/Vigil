@@ -1,10 +1,53 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import styles from "../VigilDashboard.module.css";
 import type { Threat, ViewMode } from "./dashboardTypes";
 import { SEVERITY_COLOR, scoreHex } from "./shared";
 import type { CSSProperties } from "react";
+
+function getThreatContext(threat: Threat): { headline: string; mechanism: string; watch: string } {
+  const contexts: Record<string, { headline: string; mechanism: string; watch: string }> = {
+    Geopolitical: {
+      headline: "Geopolitical risk events create rapid repricing across correlated assets",
+      mechanism:
+        "Military or diplomatic escalation → supply chain uncertainty → risk-off positioning → sector rotation to safe havens (GLD, TLT, DXY)",
+      watch: "Watch for: VIX spike >25, volume surge in put options on affected tickers, sudden USD strength",
+    },
+    Macroeconomic: {
+      headline: "Macro surprises force rapid repricing of rate expectations and growth outlook",
+      mechanism:
+        "Economic data / Fed signal → bond market reprices → USD moves → equity multiples compress or expand → sector rotation",
+      watch: "Watch for: TLT/IEF moves, DXY breakout, SPY/QQQ gap opens, yield curve shift",
+    },
+    Regulatory: {
+      headline: "Regulatory actions create legal uncertainty premium that compresses valuations",
+      mechanism:
+        "Enforcement action → legal cost uncertainty → institutional reduced exposure → peer sector trades down → earnings estimate revisions",
+      watch: "Watch for: unusual put volume, analyst price target cuts, sector ETF outflows",
+    },
+    "Supply Chain": {
+      headline: "Supply disruptions cascade from physical chokepoints to financial markets with a lag",
+      mechanism:
+        "Route/facility disruption → shipping rate spike → inventory cost increase → margin compression → revenue miss → stock repricing",
+      watch: "Watch for: Baltic Dry Index moves, container shipping ETFs (BOAT), energy commodity spikes",
+    },
+    Climate: {
+      headline: "Natural events create immediate commodity price dislocations and infrastructure risk",
+      mechanism:
+        "Event intensification → facility evacuation/shutdown → supply reduction → commodity spike (CL, NG, CORN) → energy sector volatility",
+      watch: "Watch for: CL futures gap, XLE/XOP moves, insurance sector repricing, regional utility stocks",
+    },
+    Sentiment: {
+      headline: "Sentiment shifts can override fundamentals short-term but historically mean-revert",
+      mechanism:
+        "Narrative change → positioning shift → options market repricing → price momentum → either trend continuation or sharp reversal",
+      watch: "Watch for: put/call ratio extremes, AAII sentiment survey, short interest changes, options skew",
+    },
+  };
+
+  return contexts[threat.category] ?? contexts.Geopolitical;
+}
 
 function Sparkline({ data, color }: { data: number[]; color: string }) {
   const W = 140;
@@ -46,21 +89,20 @@ export default function DetailPanel({
 }) {
   const marginTopStyle = useMemo(() => ({ marginTop: view === "portfolio" ? 14 : 0 } as CSSProperties), [view]);
 
-  const [analyzing, setAnalyzing] = useState(false);
-  const [analysis, setAnalysis] = useState<string | null>(null);
+  const [analyzePhase, setAnalyzePhase] = useState<"idle" | "loading" | "error" | "done">("idle");
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  const [analyzeText, setAnalyzeText] = useState<string | null>(null);
   const [watchAdded, setWatchAdded] = useState(false);
   const watchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleAnalyze = useCallback(async () => {
-    if (!selected || analyzing) return;
-    setAnalyzing(true);
-    setAnalysis(null);
+  const runAnalyze = useCallback(async () => {
+    if (!selected) return;
+    setAnalyzePhase("loading");
     setAnalyzeError(null);
     try {
-      const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           threatTitle: selected.title,
           category: selected.category,
@@ -70,29 +112,23 @@ export default function DetailPanel({
         }),
       });
       if (res.status === 503) {
-        setAnalyzeError('AI unavailable — set GEMINI_API_KEY to enable');
+        setAnalyzePhase("error");
+        setAnalyzeError("AI unavailable — add GROQ_API_KEY to your environment.");
         return;
       }
-      const json = await res.json() as { ok: boolean; analysis?: string; message?: string };
-      if (json.ok && json.analysis) {
-        setAnalysis(json.analysis);
-      } else {
-        setAnalyzeError(json.message ?? 'Analysis failed');
+      const json = (await res.json()) as { ok?: boolean; message?: string; analysis?: string };
+      if (!res.ok || !json.ok) {
+        setAnalyzePhase("error");
+        setAnalyzeError(json.message ?? "Analysis failed.");
+        return;
       }
+      setAnalyzeText(json.analysis ?? "");
+      setAnalyzePhase("done");
     } catch {
-      setAnalyzeError('Network error');
-    } finally {
-      setAnalyzing(false);
+      setAnalyzePhase("error");
+      setAnalyzeError("Network error.");
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- `analyzing` omitted intentionally: button is disabled={analyzing}, preventing concurrent calls
   }, [selected]);
-
-  useEffect(() => {
-    setAnalysis(null);
-    setAnalyzeError(null);
-    setWatchAdded(false);
-    if (watchTimerRef.current) clearTimeout(watchTimerRef.current);
-  }, [selected?.id]);
 
   const SEV_BADGE: Record<Threat["severity"], string> = {
     critical: styles.badgeCritical,
@@ -109,7 +145,11 @@ export default function DetailPanel({
 
       <div className={styles.detailPanel}>
         {!selected ? (
-          <div className={styles.detailEmpty}>Select a threat card to view details</div>
+          <div className={styles.detailEmpty}>
+            <div style={{ marginBottom: 8, fontSize: 20, opacity: 0.2 }}>◎</div>
+            <div>Select a threat to view intelligence brief</div>
+            <div style={{ fontSize: 10, marginTop: 4, opacity: 0.6 }}>j/k to navigate · Enter to select</div>
+          </div>
         ) : (
           <div className={styles.detailContent}>
             <div className={styles.detailHeader}>
@@ -135,6 +175,57 @@ export default function DetailPanel({
             >
               {selected.summary}
             </div>
+
+            {(() => {
+              const ctx = getThreatContext(selected);
+              return (
+                <div
+                  style={{
+                    margin: "8px 0 10px",
+                    padding: "10px 12px",
+                    background: "rgba(24,24,27,0.5)",
+                    border: "1px solid rgba(39,39,42,0.4)",
+                    borderRadius: 5,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 10,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.12em",
+                      color: "var(--text-muted)",
+                      marginBottom: 6,
+                      fontWeight: 500,
+                    }}
+                  >
+                    Mechanism
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "var(--text-secondary)",
+                      lineHeight: 1.6,
+                      marginBottom: 8,
+                    }}
+                  >
+                    {ctx.mechanism}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.12em",
+                      color: "var(--text-muted)",
+                      marginBottom: 4,
+                      fontWeight: 500,
+                    }}
+                  >
+                    What to Watch
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--sev-medium)", lineHeight: 1.5 }}>{ctx.watch}</div>
+                </div>
+              );
+            })()}
 
             <div className={styles.detailGrid}>
               <div className={styles.detailBox}>
@@ -283,24 +374,41 @@ export default function DetailPanel({
                 <button
                   type="button"
                   className={styles.analyzeBtn}
-                  onClick={handleAnalyze}
-                  disabled={analyzing}
+                  disabled={analyzePhase === "loading"}
+                  onClick={() => void runAnalyze()}
                 >
-                  ⚡ {analyzing ? 'Analyzing…' : 'Analyze'}
+                  {analyzePhase === "loading" ? "… Analyzing" : "⚡ Analyze"}
                 </button>
               </div>
             </div>
-            {analysis && (
+
+            {(analyzePhase === "error" || analyzePhase === "done") && (
               <div
-                className={styles.detailSummary}
-                style={{ borderLeftColor: '#6366f14d', marginTop: 10, whiteSpace: 'pre-wrap' }}
+                style={{
+                  marginTop: 10,
+                  padding: "10px 12px",
+                  borderRadius: 6,
+                  border: "1px solid rgba(39,39,42,0.5)",
+                  background: "rgba(24,24,27,0.45)",
+                  maxHeight: 220,
+                  overflow: "auto",
+                }}
               >
-                {analysis}
-              </div>
-            )}
-            {analyzeError && (
-              <div style={{ fontSize: 10, color: '#c42626', marginTop: 8 }}>
-                {analyzeError}
+                {analyzePhase === "error" && (
+                  <div style={{ fontSize: 11, color: "var(--sev-high)" }}>{analyzeError}</div>
+                )}
+                {analyzePhase === "done" && analyzeText && (
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "var(--text-secondary)",
+                      lineHeight: 1.55,
+                      whiteSpace: "pre-wrap",
+                    }}
+                  >
+                    {analyzeText}
+                  </div>
+                )}
               </div>
             )}
           </div>

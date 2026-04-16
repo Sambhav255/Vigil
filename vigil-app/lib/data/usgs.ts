@@ -79,11 +79,9 @@ export async function fetchSignificantEarthquakes(): Promise<{
     const data = (await res.json()) as UsgsGeoJson;
     const threats: Threat[] = [];
     let nextId = 100; // start IDs at 100 to avoid collision with static threats
-    let lastEventMs = now;
 
     for (const feature of data.features.slice(0, 5)) {
       const { mag, place, time, tsunami, title } = feature.properties;
-      if (time) lastEventMs = time;
       const [lon, lat] = feature.geometry.coordinates;
 
       // Find nearest critical region
@@ -125,7 +123,7 @@ export async function fetchSignificantEarthquakes(): Promise<{
       });
     }
 
-    return { threats, ok: true, lastUpdatedMs: lastEventMs };
+    return { threats, ok: true, lastUpdatedMs: now };
   } catch {
     logSourceFailure("usgs", "fetchSignificantEarthquakes failed");
     return { threats: [], ok: false, lastUpdatedMs: now };

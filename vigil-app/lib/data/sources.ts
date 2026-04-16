@@ -19,7 +19,7 @@ export type DashboardData = {
 };
 
 // 8 s hard timeout per external source — prevents one slow API from blocking everything
-const FETCH_TIMEOUT_MS = 8_000;
+const FETCH_TIMEOUT_MS = 5_000;
 
 async function safeFetchJson<T>(url: string, options?: RequestInit): Promise<T | null> {
   try {

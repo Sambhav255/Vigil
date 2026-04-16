@@ -27,6 +27,7 @@ export default function PortfolioView({
   addToPortfolio,
   removeFromPortfolio,
   reorderPortfolio,
+  onCardClick,
 }: {
   portfolio: string[];
   portfolioSearch: string;
@@ -40,6 +41,7 @@ export default function PortfolioView({
   addToPortfolio: (sym: string) => void;
   removeFromPortfolio: (sym: string) => void;
   reorderPortfolio: (fromIdx: number, toIdx: number) => void;
+  onCardClick?: (sym: string) => void;
 }) {
   const portfolioRows = portfolio.map((sym, index) => {
     const meta = assetMetaBySym[sym];
@@ -168,8 +170,9 @@ export default function PortfolioView({
               <div
                 key={sym}
                 className={styles.portfolioCard}
-                style={{ borderLeftColor: borderColor }}
+                style={{ borderLeftColor: borderColor, cursor: onCardClick ? "pointer" : undefined }}
                 draggable
+                onClick={() => onCardClick?.(sym)}
                 onDragStart={(e) => {
                   e.dataTransfer.setData("text/plain", String(index));
                   e.dataTransfer.effectAllowed = "move";
@@ -189,7 +192,10 @@ export default function PortfolioView({
                   <button
                     type="button"
                     className={styles.portfolioCardRemove}
-                    onClick={() => removeFromPortfolio(sym)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeFromPortfolio(sym);
+                    }}
                     title="Remove from portfolio"
                   >
                     ×

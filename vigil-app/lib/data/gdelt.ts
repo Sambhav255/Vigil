@@ -28,10 +28,11 @@ async function safeFetchJson<T>(url: string): Promise<T | null> {
 }
 
 function countArticles(json: unknown): number {
+  if (!json || typeof json !== "object") return 0;
   const j = json as Record<string, unknown>;
-  if (Array.isArray(j?.articles)) return (j.articles as unknown[]).length;
-  if (Array.isArray(j?.results)) return (j.results as unknown[]).length;
-  if (Array.isArray(j?.data)) return (j.data as unknown[]).length;
+  if (Array.isArray(j.articles)) return j.articles.length;
+  if (Array.isArray(j.results)) return j.results.length;
+  if (Array.isArray(j.data)) return j.data.length;
   return 0;
 }
 

@@ -4,12 +4,12 @@ export const SOURCE_STALE_AFTER_MS = 15 * 60 * 1000;
 
 const NOW_MS = Date.now();
 function createdAtForMomentum(momentum: Threat["momentum"]): number {
-  // Seed threats should decay: recent for escalating/peaking, older for fading.
-  const dayMs = 24 * 60 * 60 * 1000;
-  if (momentum === "escalating") return NOW_MS - 2 * dayMs;
-  if (momentum === "peaking") return NOW_MS - 1 * dayMs;
-  if (momentum === "fading") return NOW_MS - 10 * dayMs;
-  return NOW_MS - 7 * dayMs;
+  const hourMs = 60 * 60 * 1000;
+  // Escalating/peaking threats should be recent — decay should be minimal vs fading seeds.
+  if (momentum === "escalating") return NOW_MS - 3 * hourMs;
+  if (momentum === "peaking") return NOW_MS - 6 * hourMs;
+  if (momentum === "fading") return NOW_MS - 60 * hourMs;
+  return NOW_MS - 24 * hourMs;
 }
 
 export const CATEGORY_WEIGHTS = {

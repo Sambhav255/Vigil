@@ -20,6 +20,7 @@ export default function FilterBar({
   portfolioThreatsCount,
   notificationsEnabled,
   onToggleNotifications,
+  isStale = false,
 }: {
   view: ViewMode;
   assetFilter: AssetFilter;
@@ -35,6 +36,7 @@ export default function FilterBar({
   portfolioThreatsCount: number;
   notificationsEnabled: boolean;
   onToggleNotifications: () => void;
+  isStale?: boolean;
 }) {
   return (
     <div className={styles.filterBar}>
@@ -96,8 +98,11 @@ export default function FilterBar({
         <button type="button" className={styles.filterNotifyBtn} onClick={onToggleNotifications}>
           {notificationsEnabled ? "🔔 Alerts On" : "🔕 Alerts Off"}
         </button>
-        <span className={styles.liveDot} />
-        <span>LIVE</span>
+        <span
+          className={styles.liveDot}
+          style={isStale ? { background: "var(--sev-high)" } : undefined}
+        />
+        <span>{isStale ? "UPDATING" : "LIVE"}</span>
         <span>{timeStr}</span>
         <span>
           {view === "portfolio" && portfolioLength
@@ -106,7 +111,12 @@ export default function FilterBar({
         </span>
         <span
           className={styles.mobileHideHint}
-          style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', letterSpacing: '0.05em' }}
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 9,
+            color: "var(--text-muted)",
+            letterSpacing: "0.05em",
+          }}
         >
           [j/k] [Enter] [Esc] [/] [p] [1-4]
         </span>

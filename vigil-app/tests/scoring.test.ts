@@ -23,7 +23,7 @@ describe("scoring core", () => {
     expect(applySingleSourceSeverityCap("high", 1)).toBe("high");
   });
 
-  it("computes bounded global risk index using sigmoid", () => {
+  it("computes bounded global risk index (rescaled composite)", () => {
     const value = computeGlobalRiskIndex(
       { geopolitical: 80, macroeconomic: 65, sentiment: 55, supplyChain: 40, climate: 30 } as Record<string, number>,
       187

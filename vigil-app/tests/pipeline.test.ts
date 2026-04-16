@@ -79,6 +79,7 @@ describe("pipeline", () => {
     expect(snapshot.threats.length).toBe(1);
     expect(snapshot.threats[0].verified).toBe(true);
     expect(snapshot.threats[0].sourceCount).toBe(2);
+    // Cap runs after dedupe with final sourceCount; two sources lift the cap, so merged severity is max(high, critical).
     expect(snapshot.threats[0].severity).toBe("critical");
   });
 });

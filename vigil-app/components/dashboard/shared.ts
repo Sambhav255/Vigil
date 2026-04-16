@@ -17,7 +17,7 @@ export const SOURCE_DISPLAY: Record<string, string> = {
   nasaEonet: "NASA EONET",
   fred: "FRED Macro",
   gprIndex: "GPR Index",
-  geminiFlash: "Gemini Flash",
+  geminiFlash: "Groq (Analyze)",
 };
 
 export function fmtPrice(p: number) {

@@ -150,10 +150,12 @@ export async function buildDashboardSnapshot() {
     }
     const computedSectors = SECTORS.map((s) => {
       const data = sectorMap.get(s.name);
+      if (!data || data.count === 0) return { name: s.name, score: 0, count: 0 };
+      const rawScore = Math.round(data.totalScore / data.count);
       return {
         name: s.name,
-        score: data && data.count > 0 ? Math.round(data.totalScore / data.count) : 0,
-        count: data?.count ?? 0,
+        score: Math.max(12, rawScore),
+        count: data.count,
       };
     });
 
@@ -165,9 +167,29 @@ export async function buildDashboardSnapshot() {
       return sum / filtered.length;
     };
 
-    const threatGeopolitical = avgCompositeByCategory("Geopolitical");
-    const threatSentiment = avgCompositeByCategory("Sentiment");
-    const threatSupplyChain = avgCompositeByCategory("Supply Chain");
+    const threatGeopolitical = (() => {
+      const filtered = scoredThreats.filter(
+        (t) => t.category === "Geopolitical" || t.category === "Regulatory"
+      );
+      if (!filtered.length) return null;
+      return filtered.reduce((acc, t) => acc + (t.compositeScore ?? 0), 0) / filtered.length;
+    })();
+
+    const threatSentiment = (() => {
+      const filtered = scoredThreats.filter(
+        (t) => t.category === "Sentiment" || t.category === "Regulatory"
+      );
+      if (!filtered.length) return null;
+      return filtered.reduce((acc, t) => acc + (t.compositeScore ?? 0), 0) / filtered.length;
+    })();
+
+    const threatSupplyChain = (() => {
+      const filtered = scoredThreats.filter(
+        (t) => t.category === "Supply Chain" || t.category === "Geopolitical"
+      );
+      if (!filtered.length) return null;
+      return filtered.reduce((acc, t) => acc + (t.compositeScore ?? 0), 0) / filtered.length;
+    })();
     const threatClimate = avgCompositeByCategory("Climate");
     const threatMacro = avgCompositeByCategory("Macroeconomic");
 

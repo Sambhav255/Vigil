@@ -88,7 +88,8 @@ All variables are optional. The app renders with mock data when keys are absent.
 | `ALPHA_VANTAGE_API_KEY` | Live equity quotes | Yes |
 | `COINGECKO_DEMO_API_KEY` | Live crypto prices — falls back to Coinpaprika | Yes |
 | `FRED_API_KEY` | Live macro indicators (CPI, unemployment, yields) | Yes |
-| `GEMINI_API_KEY` | Enables AI threat analysis | Yes (Gemini Flash) |
+| `GROQ_API_KEY` | Enables `/api/analyze` AI deep-dive ([Groq console](https://console.groq.com/keys)) | Yes |
+| `GROQ_MODEL` | Optional model override (default: `openai/gpt-oss-120b` in code) | — |
 | `NEXT_PUBLIC_CONVEX_URL` | Enables auth + persistent watchlists | Yes (free tier) |
 | `NEXT_PUBLIC_SITE_URL` | Base URL for OG metadata | — |
 

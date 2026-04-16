@@ -21,6 +21,8 @@ export default function MetricRow({
   portfolioThreatsCount,
   allAssetsLength,
   topAssets,
+  criticalThreatCount,
+  highThreatCount,
 }: {
   view: ViewMode;
   activeThreatsCount: number | null;
@@ -31,6 +33,8 @@ export default function MetricRow({
   portfolioThreatsCount: number;
   allAssetsLength: number;
   topAssets: string;
+  criticalThreatCount: number;
+  highThreatCount: number;
 }) {
   const gprSubtitle = gprIndex >= 180 ? "(elevated)" : "(normal)";
   const assetsLabel = view === "portfolio" ? "Portfolio Positions" : "Assets at Risk";
@@ -41,6 +45,34 @@ export default function MetricRow({
         <div className={styles.metricLabel}>Active Threats</div>
         <div className={styles.metricValue}>{activeThreatsCount ?? "—"}</div>
         <div className={styles.metricSub}>across {categoriesCount} categories</div>
+        {activeThreatsCount !== null && (criticalThreatCount > 0 || highThreatCount > 0) && (
+          <div style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
+            {criticalThreatCount > 0 && (
+              <span
+                style={{
+                  fontSize: 9,
+                  color: "var(--sev-critical)",
+                  fontFamily: "var(--font-mono)",
+                  fontWeight: 600,
+                }}
+              >
+                {criticalThreatCount} CRIT
+              </span>
+            )}
+            {highThreatCount > 0 && (
+              <span
+                style={{
+                  fontSize: 9,
+                  color: "var(--sev-high)",
+                  fontFamily: "var(--font-mono)",
+                  fontWeight: 600,
+                }}
+              >
+                {highThreatCount} HIGH
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       <div className={styles.metricCard}>

@@ -1,95 +1,81 @@
-export const dynamic = "force-dynamic";
+import { NextResponse } from "next/server";
 
-type AnalyzeRequestBody = {
-  threatTitle?: string;
-  category?: string;
-  severity?: string;
-  assets?: string[];
-  probability?: number;
-};
+export const runtime = "nodejs";
 
-let lastGeminiCallAt = 0;
+const GROQ_MODEL = process.env.GROQ_MODEL ?? "openai/gpt-oss-120b";
 
-export async function POST(request: Request) {
-  if (!process.env.GEMINI_API_KEY) {
-    return Response.json(
-      {
-        ok: false,
-        message: "AI temporarily unavailable",
-      },
-      { status: 503 }
+export async function POST(req: Request) {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) {
+    return NextResponse.json(
+      { ok: false, message: "Missing GROQ_API_KEY in environment." },
+      { status: 503 },
     );
   }
 
-  const body = (await request.json()) as AnalyzeRequestBody;
-  const threatTitle = body.threatTitle ?? "Unknown event";
-
-  // Rate-limit: 1 call per 30 seconds (free-tier safe).
-  const now = Date.now();
-  const minIntervalMs = 30_000;
-  const delta = now - lastGeminiCallAt;
-  if (delta < minIntervalMs) {
-    const retryAfterSec = Math.ceil((minIntervalMs - delta) / 1000);
-    return new Response(
-      JSON.stringify({ ok: false, message: "Rate limited. Try again shortly." }),
-      { status: 429, headers: { "Retry-After": String(retryAfterSec) } }
-    );
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ ok: false, message: "Invalid JSON body." }, { status: 400 });
   }
-  lastGeminiCallAt = now;
 
-  const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
-  const prompt = `You are a geopolitical risk analyst. Analyze this threat for a financial trader:
+  const b = body as Record<string, unknown>;
+  const threatTitle = typeof b.threatTitle === "string" ? b.threatTitle : "";
+  const category = typeof b.category === "string" ? b.category : "";
+  const severity = typeof b.severity === "string" ? b.severity : "";
+  const assets = Array.isArray(b.assets) ? b.assets.filter((x) => typeof x === "string") : [];
+  const probability =
+    typeof b.probability === "number" && Number.isFinite(b.probability) ? b.probability : 0;
+
+  const prompt = `You are Vigil, a geopolitical risk analyst for traders.
 
 Threat: ${threatTitle}
-Category: ${body.category ?? "Unknown"}
-Severity: ${body.severity ?? "Unknown"}
-Affected Assets: ${body.assets?.join(", ") ?? "Unknown"}
-Current Probability: ${body.probability ?? "Unknown"}
+Category: ${category}
+Severity: ${severity}
+Affected assets: ${assets.join(", ") || "n/a"}
+Market-implied probability: ${(probability * 100).toFixed(0)}%
 
-Provide:
-1. A 2-3 sentence executive summary of what's happening
-2. The most likely market impact scenario (1 paragraph)
-3. Historical precedent (what similar events led to)
-4. Key dates/triggers to watch
-5. Contrarian view — why this might NOT play out
+Give a concise analysis (max 180 words) with:
+1) What is happening (2-3 sentences)
+2) Key second-order effects on listed assets
+3) What could invalidate this read
 
-Keep it under 300 words. Be specific about asset price implications. No disclaimers.`;
+Plain text only, no markdown.`;
 
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 12_000);
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.4,
+        max_tokens: 400,
+      }),
+    });
 
-    try {
-      const res = await fetch(GEMINI_URL, {
-        method: "POST",
-        signal: controller.signal,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 500,
-          },
-        }),
-      });
+    const json = (await res.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+      error?: { message?: string };
+    };
 
-      if (!res.ok) {
-        return Response.json({ ok: false, message: "AI request failed." }, { status: 502 });
-      }
-
-      const json = (await res.json()) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-      const text =
-        json?.candidates?.[0]?.content?.parts?.map((p) => p?.text ?? "").join("") ?? "";
-
-      if (!text.trim()) {
-        return Response.json({ ok: false, message: "AI returned an empty response." }, { status: 502 });
-      }
-
-      return Response.json({ ok: true, analysis: text.trim() });
-    } finally {
-      clearTimeout(timer);
+    if (!res.ok) {
+      const msg = json.error?.message ?? `Groq error (${res.status})`;
+      return NextResponse.json({ ok: false, message: msg }, { status: 502 });
     }
-  } catch {
-    return Response.json({ ok: false, message: "AI request timed out." }, { status: 504 });
+
+    const text = json.choices?.[0]?.message?.content?.trim() ?? "";
+    if (!text) {
+      return NextResponse.json({ ok: false, message: "Empty response from Groq." }, { status: 502 });
+    }
+
+    return NextResponse.json({ ok: true, analysis: text });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Unknown error";
+    return NextResponse.json({ ok: false, message: msg }, { status: 500 });
   }
 }
