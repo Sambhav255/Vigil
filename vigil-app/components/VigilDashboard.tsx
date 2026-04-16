@@ -631,8 +631,8 @@ export default function VigilDashboard() {
             ))}
           </div>
 
-          {/* ── CENTER: skeleton heatmap + detail ── */}
-          <div className={styles.colCenter}>
+          {/* ── CENTER: skeleton heatmap + detail (stacked) ── */}
+          <div className={`${styles.colCenter} ${styles.colCenterStack}`}>
             <div className={styles.sectionHeader}>
               <div className={styles.skeletonShimmer} style={{ width: "78%", height: 10, borderRadius: 6 }} />
             </div>
@@ -753,65 +753,87 @@ export default function VigilDashboard() {
             </div>
           </ErrorBoundary>
 
-          {/* ── CENTER: Portfolio Panel or Heatmap + Detail ── */}
+          {/* ── CENTER: Portfolio or Heatmap, then Threat Detail (single column — fills awkward gap) ── */}
           <ErrorBoundary label="Threat detail">
-            <div className={`${styles.colCenter} ${mobileTab !== "intel" ? styles.mobileHidden : ""}`}>
-            {view === "portfolio" ? (
-              /* ── Portfolio Panel ── */
-              <>
-                <PortfolioView
-                  portfolio={portfolio}
-                  portfolioSearch={portfolioSearch}
-                  setPortfolioSearch={setPortfolioSearch}
-                  showDrop={showDrop}
-                  setShowDrop={setShowDrop}
-                  dropRef={dropRef}
-                  searchSuggestions={searchSuggestions}
-                  assetMetaBySym={assetMetaBySym}
-                  getRiskForSym={(sym) => {
-                    const meta = assetMetaBySym[sym];
-                    const sectorsForAsset =
-                      meta?.sectors?.length
-                        ? meta.sectors
-                        : STATIC_ASSET_SECTORS[sym] ?? ["Technology"];
-                    return getAssetRisk(sym, data.threats, threatsByAsset, sectorsForAsset);
-                  }}
-                  addToPortfolio={addToPortfolio}
-                  removeFromPortfolio={removeFromPortfolio}
-                  reorderPortfolio={reorderPortfolio}
-                  onCardClick={(sym) => {
-                    const SRANK = { critical: 4, high: 3, medium: 2, low: 1 } as const;
-                    const list = threatsByAsset[sym.toUpperCase()] ?? [];
-                    const topThreat = [...list].sort(
-                      (a, b) => (SRANK[b.severity] ?? 0) - (SRANK[a.severity] ?? 0)
-                    )[0];
-                    if (topThreat) {
-                      setSelected(topThreat);
-                      setView("dashboard");
-                    }
-                  }}
-                />
-              </>
-            ) : (
-              <SectorHeatmap
-                sectors={data.sectors}
-                sectorFilter={sectorFilter}
-                onSelectSector={handleSectorClick}
-              />
-            )}
-            </div>
-            <div className={mobileTab !== "detail" ? styles.mobileHidden : ""}>
-              <DetailPanel
-                key={selected?.id ?? "none"}
-                view={view}
-                selected={selected}
-                portfolio={portfolio}
-                onClose={() => {
-                  setSelected(null);
-                  setMobileTab("feed");
-                }}
-                addToPortfolio={addToPortfolio}
-              />
+            <div
+              className={`${styles.colCenter} ${styles.colCenterStack} ${
+                mobileTab === "feed" ? styles.mobileHidden : ""
+              }`}
+            >
+              {view === "portfolio" ? (
+                <>
+                  <div className={mobileTab === "detail" ? styles.mobileHidden : ""}>
+                    <PortfolioView
+                      portfolio={portfolio}
+                      portfolioSearch={portfolioSearch}
+                      setPortfolioSearch={setPortfolioSearch}
+                      showDrop={showDrop}
+                      setShowDrop={setShowDrop}
+                      dropRef={dropRef}
+                      searchSuggestions={searchSuggestions}
+                      assetMetaBySym={assetMetaBySym}
+                      getRiskForSym={(sym) => {
+                        const meta = assetMetaBySym[sym];
+                        const sectorsForAsset =
+                          meta?.sectors?.length
+                            ? meta.sectors
+                            : STATIC_ASSET_SECTORS[sym] ?? ["Technology"];
+                        return getAssetRisk(sym, data.threats, threatsByAsset, sectorsForAsset);
+                      }}
+                      addToPortfolio={addToPortfolio}
+                      removeFromPortfolio={removeFromPortfolio}
+                      reorderPortfolio={reorderPortfolio}
+                      onCardClick={(sym) => {
+                        const SRANK = { critical: 4, high: 3, medium: 2, low: 1 } as const;
+                        const list = threatsByAsset[sym.toUpperCase()] ?? [];
+                        const topThreat = [...list].sort(
+                          (a, b) => (SRANK[b.severity] ?? 0) - (SRANK[a.severity] ?? 0)
+                        )[0];
+                        if (topThreat) {
+                          setSelected(topThreat);
+                          setView("dashboard");
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className={mobileTab === "intel" ? styles.mobileHidden : ""}>
+                    <DetailPanel
+                      key={selected?.id ?? "none"}
+                      view={view}
+                      selected={selected}
+                      portfolio={portfolio}
+                      onClose={() => {
+                        setSelected(null);
+                        setMobileTab("feed");
+                      }}
+                      addToPortfolio={addToPortfolio}
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className={`${styles.centerHeatmapBlock} ${mobileTab === "detail" ? styles.mobileHidden : ""}`}>
+                    <SectorHeatmap
+                      sectors={data.sectors}
+                      sectorFilter={sectorFilter}
+                      onSelectSector={handleSectorClick}
+                    />
+                  </div>
+                  <div className={`${styles.centerDetailBlock} ${mobileTab === "intel" ? styles.mobileHidden : ""}`}>
+                    <DetailPanel
+                      key={selected?.id ?? "none"}
+                      view={view}
+                      selected={selected}
+                      portfolio={portfolio}
+                      onClose={() => {
+                        setSelected(null);
+                        setMobileTab("feed");
+                      }}
+                      addToPortfolio={addToPortfolio}
+                    />
+                  </div>
+                </>
+              )}
             </div>
           </ErrorBoundary>
 

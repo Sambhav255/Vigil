@@ -99,4 +99,3 @@ export async function fetchGdeltVolumeThreatUpdates(baseThreats: Threat[]): Prom
 
   return { ok: Object.keys(volumesByCategory).length > 0, updates };
 }
-
