@@ -1,6 +1,15 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import styles from "../VigilDashboard.module.css";
 import type { Threat, ViewMode } from "./dashboardTypes";
 import { SEVERITY_COLOR, scoreHex } from "./shared";
@@ -71,6 +80,108 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
     >
       <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
     </svg>
+  );
+}
+
+/** Chronological implied-probability trail (~30m steps) as a compact chart (replaces wide list UI). */
+function ProbHistoryTimelineChart({
+  probHistory,
+  stroke,
+  chartId,
+}: {
+  probHistory: number[];
+  stroke: string;
+  chartId: string;
+}) {
+  const chartRows = useMemo(() => {
+    const pts = [...probHistory].slice(-7);
+    const n = pts.length;
+    return pts.map((p, i) => {
+      const minutesAgo = (n - 1 - i) * 30;
+      return {
+        label: minutesAgo === 0 ? "now" : `${minutesAgo}m`,
+        pct: Math.round(p * 100),
+      };
+    });
+  }, [probHistory]);
+
+  const gradId = `prob-area-${chartId.replace(/\W/g, "_")}`;
+
+  if (chartRows.length < 2) {
+    return (
+      <div className={styles.detailTimelineChartEmpty}>
+        At least two snapshots are needed to draw a trend. Points appear as the dashboard polls (~every
+        30m).
+      </div>
+    );
+  }
+
+  const minPct = Math.min(...chartRows.map((r) => r.pct));
+  const maxPct = Math.max(...chartRows.map((r) => r.pct));
+  const pad = Math.max(2, Math.ceil((maxPct - minPct) * 0.25) || 2);
+  const yMin = Math.max(0, minPct - pad);
+  const yMax = Math.min(100, maxPct + pad);
+
+  return (
+    <div className={styles.detailTimelineChartWrap}>
+      <ResponsiveContainer width="100%" height={118}>
+        <AreaChart data={chartRows} margin={{ top: 6, right: 4, left: 0, bottom: 2 }}>
+          <defs>
+            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={stroke} stopOpacity={0.38} />
+              <stop offset="100%" stopColor={stroke} stopOpacity={0.02} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(63,63,70,0.35)" vertical={false} />
+          <XAxis
+            dataKey="label"
+            tick={{ fill: "#71717a", fontSize: 9, fontFamily: "var(--font-mono), ui-monospace, monospace" }}
+            stroke="rgba(63,63,70,0.45)"
+            tickLine={false}
+            axisLine={{ stroke: "rgba(63,63,70,0.45)" }}
+            interval={0}
+            height={28}
+          />
+          <YAxis
+            domain={[yMin, yMax]}
+            tick={{ fill: "#71717a", fontSize: 9, fontFamily: "var(--font-mono), ui-monospace, monospace" }}
+            stroke="rgba(63,63,70,0.45)"
+            tickLine={false}
+            width={34}
+            tickFormatter={(v) => `${v}%`}
+          />
+          <Tooltip
+            cursor={{ stroke: "rgba(113,113,122,0.35)", strokeWidth: 1 }}
+            contentStyle={{
+              background: "rgba(17,17,20,0.96)",
+              border: "1px solid rgba(63,63,70,0.55)",
+              borderRadius: 6,
+              fontSize: 11,
+              color: "#e4e4e7",
+            }}
+            labelStyle={{ color: "#a1a1aa", fontSize: 10 }}
+            formatter={(value) => [`${typeof value === "number" ? value : Number(value) || "—"}%`, "Implied"]}
+          />
+          <Area
+            type="monotone"
+            dataKey="pct"
+            name="Implied"
+            stroke={stroke}
+            strokeWidth={2}
+            fill={`url(#${gradId})`}
+            dot={{ r: 2.5, fill: stroke, strokeWidth: 0 }}
+            activeDot={{ r: 4, stroke: stroke, strokeWidth: 1, fill: "#18181b" }}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+      <div className={styles.detailTimelineFoot}>
+        <span>← older</span>
+        <span className={styles.detailTimelineRange}>
+          {chartRows[0].pct}% → {chartRows[chartRows.length - 1].pct}%
+        </span>
+        <span>newer →</span>
+      </div>
+    </div>
   );
 }
 
@@ -291,20 +402,15 @@ export default function DetailPanel({
 
             {selected.probHistory.length > 0 && (
               <div className={styles.detailTimeline}>
-                <div className={styles.detailBoxLabel}>Threat Timeline</div>
-                <div className={styles.detailTimelineList}>
-                  {[...selected.probHistory].slice(-7).reverse().map((point, idx) => {
-                    const minutesAgo = idx * 30;
-                    const label = minutesAgo === 0 ? "now" : `${minutesAgo}m ago`;
-                    return (
-                      <div key={`${selected.id}-${idx}-${point}`} className={styles.detailTimelineItem}>
-                        <span className={styles.detailTimelineDot} />
-                        <span className={styles.detailTimelineLabel}>{label}</span>
-                        <span className={styles.detailTimelineValue}>{(point * 100).toFixed(0)}%</span>
-                      </div>
-                    );
-                  })}
+                <div className={styles.detailTimelineHeader}>
+                  <span className={styles.detailBoxLabel}>Threat timeline</span>
+                  <span className={styles.detailTimelineHint}>~30m between points</span>
                 </div>
+                <ProbHistoryTimelineChart
+                  probHistory={selected.probHistory}
+                  stroke={selected.probSource === "Polymarket" ? "#5b5fef" : "#2a8a5e"}
+                  chartId={String(selected.id)}
+                />
               </div>
             )}
 

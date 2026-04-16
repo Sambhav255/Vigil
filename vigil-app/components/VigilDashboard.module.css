@@ -3,9 +3,12 @@
 ═══════════════════════════════════════════════════ */
 .shell {
   height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  min-height: 0;
   background: var(--bg-base);
   color: var(--text-primary);
   position: relative;
@@ -349,18 +352,26 @@
   flex: 1;
   display: grid;
   grid-template-columns: minmax(300px, 380px) minmax(320px, 1fr) minmax(260px, 300px);
+  /* One row fills remaining shell height so columns can shrink and scroll */
+  grid-template-rows: minmax(0, 1fr);
   min-height: 0;
   overflow: hidden;
 }
 
 .colLeft {
+  min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
   border-right: 1px solid var(--border);
   padding: 12px 10px 16px 12px;
 }
 
 .colCenter {
+  min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
   border-right: 1px solid var(--border);
   padding: 12px 12px 16px;
 }
@@ -386,8 +397,24 @@
   margin-top: 0;
 }
 
+/* Grid/flex child: lets nested .colRight scroll (plain wrapper defaults to min-height:auto) */
+.gridCell {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.gridCell > .colRight {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .colRight {
+  min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 12px 12px 16px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 140px);
 }
@@ -852,40 +879,53 @@
   margin-bottom: 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 8px 10px;
+  padding: 10px 10px 8px;
   background: rgba(24, 24, 27, 0.45);
 }
 
-.detailTimelineList {
-  margin-top: 6px;
+.detailTimelineHeader {
   display: flex;
-  flex-direction: column;
-  gap: 5px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 2px;
 }
 
-.detailTimelineItem {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 8px;
-  font-size: 10px;
-}
-
-.detailTimelineDot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(99, 102, 241, 0.8);
-}
-
-.detailTimelineLabel {
-  font-family: var(--font-mono);
+.detailTimelineHint {
+  font-size: 9px;
   color: var(--text-muted);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
-.detailTimelineValue {
-  font-family: var(--font-mono);
-  color: #e4e4e7;
+.detailTimelineChartWrap {
+  width: 100%;
+  margin-top: 2px;
+}
+
+.detailTimelineChartEmpty {
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.55;
+  padding: 14px 6px 10px;
+  text-align: center;
+}
+
+.detailTimelineFoot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+  padding: 0 2px;
+  font-size: 9px;
+  color: var(--text-muted);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  letter-spacing: 0.03em;
+}
+
+.detailTimelineRange {
+  color: var(--text-secondary);
+  font-weight: 600;
 }
 
 .detailFooter {
@@ -1431,11 +1471,18 @@
 
   .columns {
     grid-template-columns: 320px 1fr;
+    /* Top row (feed + center) gets more height; bottom row (intel rail) scrolls independently */
+    grid-template-rows: minmax(0, 2fr) minmax(0, 1fr);
+  }
+
+  /* .colRight is nested inside .gridCell — span must be on the grid direct child */
+  .columns > .gridCell {
+    grid-column: 1 / -1;
   }
 
   .colRight {
-    grid-column: 1 / -1;
     border-top: 1px solid var(--border);
+    min-height: 0;
   }
 
   .portfolioGrid {
@@ -1452,15 +1499,33 @@
 }
 
 @media (max-width: 768px) {
+  /*
+   * Phone layout: fixed viewport, chrome (ticker/metrics/filter) stays put,
+   * one primary scroll region per tab — no whole-page zoom to read content.
+   * Desktop / tablet >768px is unchanged.
+   */
   .shell {
-    height: auto;
-    min-height: 100vh;
-    overflow: auto;
-    padding-bottom: 56px;
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    /* Space for fixed tab bar + home indicator */
+    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .shell > .tickerBar,
+  .shell > .metricRow,
+  .shell > .filterBar {
+    flex-shrink: 0;
   }
 
   .tickerBar {
-    height: 34px;
+    min-height: 34px;
+    height: auto;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: 4px;
   }
 
   .metricRow {
@@ -1476,7 +1541,7 @@
   }
 
   .metricCard {
-    min-width: 130px;
+    min-width: 132px;
     flex-shrink: 0;
   }
 
@@ -1484,6 +1549,12 @@
     flex-wrap: wrap;
     row-gap: 8px;
     padding: 8px 10px;
+  }
+
+  .filterPill {
+    min-height: 36px;
+    padding: 6px 12px;
+    touch-action: manipulation;
   }
 
   .filterSpacer {
@@ -1497,6 +1568,8 @@
 
   .filterSearchInput {
     width: 100%;
+    min-height: 36px;
+    font-size: 16px; /* avoids iOS input zoom */
   }
 
   .filterRight {
@@ -1505,10 +1578,34 @@
     order: 3;
   }
 
+  .filterNotifyBtn {
+    min-height: 36px;
+    padding: 6px 10px;
+    touch-action: manipulation;
+  }
+
+  /* Main stack: grows, clips; each visible pane scrolls inside */
   .columns {
+    flex: 1 1 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
+    gap: 0;
+  }
+
+  /* Loading skeleton: natural stacked height, whole block scrolls */
+  .columns[aria-hidden="true"] {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .columns[aria-hidden="true"] > .colLeft,
+  .columns[aria-hidden="true"] > .colCenter,
+  .columns[aria-hidden="true"] > .colRight {
+    flex: 0 0 auto;
     overflow: visible;
+    min-height: unset;
   }
 
   .colLeft,
@@ -1516,43 +1613,108 @@
   .colRight {
     border-right: none;
     border-top: 1px solid var(--border);
-    overflow: visible;
-    padding: 10px;
+    padding: 12px 12px 14px;
     height: auto;
+  }
+
+  /* Single visible tab (Feed or Detail): fill remaining height and scroll */
+  .columns > .colLeft:not(.mobileHidden),
+  .columns > .colCenter:not(.mobileHidden),
+  .columns > .gridCell:not(.mobileHidden) {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Intel tab: heatmap + rail both visible — one scroll for the pair */
+  .columns:has(> .colCenter:not(.mobileHidden)):has(> .gridCell:not(.mobileHidden)) {
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    gap: 10px;
+  }
+
+  .columns:has(> .colCenter:not(.mobileHidden)):has(> .gridCell:not(.mobileHidden)) > .colCenter,
+  .columns:has(> .colCenter:not(.mobileHidden)):has(> .gridCell:not(.mobileHidden)) > .gridCell {
+    flex: 0 0 auto;
+    overflow: visible;
     min-height: unset;
+  }
+
+  .gridCell {
+    overflow: visible;
+    min-height: 0;
+  }
+
+  .gridCell > .colRight {
+    flex: unset;
+    min-height: unset;
+    overflow: visible;
   }
 
   .heatmapGrid {
     grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .heatmapCell {
+    min-height: 72px;
+    padding: 10px 8px;
   }
 
   .detailPanel {
     margin-top: 12px;
   }
 
+  .threatCard {
+    padding: 14px 12px;
+    margin-bottom: 10px;
+    touch-action: manipulation;
+  }
+
+  .analyzeBtn {
+    min-height: 40px;
+    padding: 8px 12px;
+    touch-action: manipulation;
+  }
+
+  .closeBtn {
+    min-width: 40px;
+    min-height: 40px;
+    touch-action: manipulation;
+  }
+
+  .probRankItem {
+    padding: 10px 0;
+    min-height: 44px;
+    box-sizing: border-box;
+  }
+
   .portfolioSummaryRow {
     grid-template-columns: 1fr;
   }
 
-  /* tab bar visible on mobile */
   .mobileTabBar {
     display: flex;
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
-    height: 56px;
+    min-height: calc(56px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     background: var(--bg-panel);
     border-top: 1px solid var(--border);
     z-index: 100;
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.35);
   }
 
-  /* hidden utility active on mobile */
   .mobileHidden {
     display: none !important;
   }
 
-  /* hide keyboard shortcut hint (irrelevant on touch) */
   .mobileHideHint {
     display: none;
   }
@@ -1569,14 +1731,16 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 4px;
   background: none;
   border: none;
   border-top: 2px solid transparent;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 6px 0;
+  min-height: 48px;
+  padding: 8px 4px;
   position: relative;
+  touch-action: manipulation;
 }
 
 .mobileTabBtnActive {

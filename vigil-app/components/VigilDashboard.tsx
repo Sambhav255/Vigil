@@ -839,7 +839,9 @@ export default function VigilDashboard() {
 
           {/* ── RIGHT: Probabilities + Forces + Sources ── */}
           <ErrorBoundary label="Right panel">
-            <div className={mobileTab !== "intel" ? styles.mobileHidden : ""}>
+            <div
+              className={`${styles.gridCell} ${mobileTab !== "intel" ? styles.mobileHidden : ""}`}
+            >
               <RightPanel data={data} onSelectThreat={handleRightPanelThreatSelect} />
             </div>
           </ErrorBoundary>
